@@ -228,12 +228,21 @@ public class UsuarioService {
                 .toList();
     }
 
+    private Rol resolverRolPermitido(String nombreRol) {
+        String rolNormalizado = nombreRol != null ? nombreRol.trim().toUpperCase() : "";
+        if (!java.util.Set.of("ADMINISTRADOR", "ALMACEN", "CLIENTE").contains(rolNormalizado)) {
+            throw new IllegalArgumentException(
+                    "Rol no válido: '" + nombreRol + "'. Roles permitidos: ADMINISTRADOR, ALMACEN, CLIENTE.");
+        }
+        return rolRepository.findByNombreRol(rolNormalizado)
+                .orElseThrow(() -> new IllegalStateException("El rol " + rolNormalizado + " no está registrado en el sistema."));
+    }
+
     @Transactional
     public UsuarioDTO cambiarRol(Integer id, String nombreRol) {
         Usuario usuario = usuarioRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado con ID: " + id));
-        Rol rol = rolRepository.findByNombreRol(nombreRol.toUpperCase())
-                .orElseGet(() -> rolRepository.save(new Rol(null, nombreRol.toUpperCase(), "Rol del sistema")));
+        Rol rol = resolverRolPermitido(nombreRol);
         usuario.setRol(rol);
         return mapearUsuarioDTO(usuarioRepository.save(usuario));
     }
@@ -259,8 +268,7 @@ public class UsuarioService {
             throw new IllegalArgumentException("El usuario '" + username + "' ya existe.");
         }
         String nombreRol = (dto.rol() != null && !dto.rol().isBlank()) ? dto.rol().trim().toUpperCase() : "CLIENTE";
-        Rol rol = rolRepository.findByNombreRol(nombreRol)
-                .orElseGet(() -> rolRepository.save(new Rol(null, nombreRol, "Rol creado por administrador")));
+        Rol rol = resolverRolPermitido(nombreRol);
 
         String hash = encryptionStrategy.encriptar(dto.password().trim());
         Usuario nuevo = usuarioFactory.crearUsuario(username, hash, rol);
