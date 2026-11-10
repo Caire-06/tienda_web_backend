@@ -157,17 +157,7 @@ public class ConsultaFiscalService {
             );
             String razon = textoCampo(json, "razonSocial");
             if (!razon.isBlank()) {
-                String estado = textoCampo(json, "estado");
-                String condicion = textoCampo(json, "condicion");
-                String dir = textoCampo(json, "direccion");
-                return new ConsultaRucDTO(
-                        ruc,
-                        razon,
-                        estado.isBlank() ? "ACTIVO" : estado,
-                        condicion.isBlank() ? "HABIDO" : condicion,
-                        dir.isBlank() ? "LIMA - PERÚ" : dir,
-                        "SUNAT"
-                );
+                return construirRucDto(ruc, razon, json);
             }
         }
 
@@ -182,17 +172,7 @@ public class ConsultaFiscalService {
             String razon = textoCampo(json, "razonSocial");
             if (razon.isBlank()) razon = textoCampo(json, "nombre");
             if (!razon.isBlank()) {
-                String estado = textoCampo(json, "estado");
-                String condicion = textoCampo(json, "condicion");
-                String dir = textoCampo(json, "direccion");
-                return new ConsultaRucDTO(
-                        ruc,
-                        razon,
-                        estado.isBlank() ? "ACTIVO" : estado,
-                        condicion.isBlank() ? "HABIDO" : condicion,
-                        dir.isBlank() ? "LIMA - PERÚ" : dir,
-                        "SUNAT"
-                );
+                return construirRucDto(ruc, razon, json);
             }
         }
 
@@ -226,7 +206,11 @@ public class ConsultaFiscalService {
             }
             Map<String, Object> parsed = JsonParserFactory.getJsonParser().parseMap(resp.body());
             if (Boolean.FALSE.equals(parsed.get("success"))) {
-                throw new DocumentoNoEncontradoException(msgNoEncontrado);
+                String msgApi = textoCampo(parsed, "message");
+                if (msgApi.toLowerCase().contains("token")) {
+                    throw new IllegalStateException("El token externo para consultas fue rechazado: " + msgApi);
+                }
+                throw new DocumentoNoEncontradoException(msgApi.isBlank() ? msgNoEncontrado : msgApi);
             }
             return parsed;
         } catch (DocumentoNoEncontradoException | IllegalStateException e) {
@@ -234,6 +218,30 @@ public class ConsultaFiscalService {
         } catch (Exception e) {
             throw new IllegalStateException("No se pudo conectar con el servicio externo RENIEC/SUNAT.");
         }
+    }
+
+    private ConsultaRucDTO construirRucDto(String ruc, String razon, Map<String, Object> json) {
+        String estado = textoCampo(json, "estado");
+        String condicion = textoCampo(json, "condicion");
+        String dir = textoCampo(json, "direccion");
+        if (dir.isBlank() || "-".equals(dir)) {
+            String ubigeo = java.util.stream.Stream.of(
+                            textoCampo(json, "distrito"),
+                            textoCampo(json, "provincia"),
+                            textoCampo(json, "departamento")
+                    )
+                    .filter(s -> !s.isBlank() && !"-".equals(s))
+                    .collect(java.util.stream.Collectors.joining(", "));
+            dir = ubigeo.isBlank() ? "LIMA - PERÚ" : ubigeo;
+        }
+        return new ConsultaRucDTO(
+                ruc,
+                razon,
+                estado.isBlank() ? "ACTIVO" : estado,
+                condicion.isBlank() ? "HABIDO" : condicion,
+                dir,
+                "SUNAT"
+        );
     }
 
     private static String textoSeguro(String valor) {
