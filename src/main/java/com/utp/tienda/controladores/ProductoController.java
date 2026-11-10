@@ -141,8 +141,17 @@ public class ProductoController {
             Object urlObj = resultado.get("secure_url");
             String url = urlObj != null ? urlObj.toString() : (resultado.get("url") != null ? resultado.get("url").toString() : null);
             return ResponseEntity.ok(new SubidaImagenResponse(url, publicId));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Error al subir imagen a Cloudinary"));
+            System.err.println("[ProductoController] Fallo en POST /api/productos/imagen: " + e.getMessage());
+            e.printStackTrace(System.err);
+            String detalle = (e.getMessage() != null && !e.getMessage().isBlank())
+                    ? e.getMessage()
+                    : "Error al subir imagen a Cloudinary";
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", detalle));
         }
     }
 }
