@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
@@ -172,8 +173,18 @@ public class UsuarioService {
     }
 
     @Transactional
+    public UsuarioDTO darDeBajaLogica(Integer id) {
+        Usuario usuario = usuarioRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado con ID: " + id));
+        usuario.setEstado("Inactivo");
+        usuario.setBloqueado(true);
+        usuario.setFechaActualizacion(LocalDateTime.now());
+        return mapearUsuarioDTO(usuarioRepository.save(usuario));
+    }
+
     public void eliminarUsuario(Integer id) {
-        usuarioRepository.deleteById(id);
+        // En cumplimiento de 3FN y auditoría, baja lógica en lugar de borrado físico
+        darDeBajaLogica(id);
     }
 
     public UsuarioDTO mapearUsuarioDTO(Usuario u) {
@@ -202,9 +213,12 @@ public class UsuarioService {
 
         String rol = u.getRol() != null ? u.getRol().getNombreRol() : "CLIENTE";
         String ultimo = u.getUltimoAcceso() != null ? u.getUltimoAcceso().format(DateTimeFormatter.ofPattern("d/M/yyyy HH:mm")) : "—";
-        String fechaRegistro = "Reciente";
+        String estado = u.getEstado();
+        String fechaRegistro = u.getFechaCreacion() != null 
+                ? u.getFechaCreacion().format(DateTimeFormatter.ofPattern("d/M/yyyy HH:mm")) 
+                : "Reciente";
 
-        return new UsuarioDTO(u.getIdUsuario(), u.getNombreUsuario(), nombreCompleto, correo, telefono, rol, u.getBloqueado(), fechaRegistro, ultimo);
+        return new UsuarioDTO(u.getIdUsuario(), u.getNombreUsuario(), nombreCompleto, correo, telefono, rol, u.getBloqueado(), estado, fechaRegistro, ultimo);
     }
 
     @Transactional(readOnly = true)

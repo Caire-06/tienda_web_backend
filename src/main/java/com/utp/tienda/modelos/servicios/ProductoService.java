@@ -91,13 +91,15 @@ public class ProductoService {
     }
 
     @Transactional
-    public void eliminar(Integer id) {
+    public ProductoDTO darDeBajaLogica(Integer id) {
         Producto p = productos.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado"));
-        if (p.getVendidos() != null && p.getVendidos() > 0) {
-            throw new IllegalArgumentException("No se puede eliminar un producto con ventas registradas");
-        }
-        productos.delete(p);
+        p.setActivo(false);
+        return mapear(productos.save(p));
+    }
+
+    public void eliminar(Integer id) {
+        darDeBajaLogica(id);
     }
 
     public void verificarRolPermitido(Integer usuarioId) {

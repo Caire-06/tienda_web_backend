@@ -8,7 +8,7 @@ public record UsuarioDTO(
         String telefono,
         String rol,
         Boolean bloqueado,
+        String estado,
         String fechaRegistro,
         String ultimoAcceso
 ) {}
-

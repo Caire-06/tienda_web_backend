@@ -69,9 +69,24 @@ public class UsuarioController {
         }
     }
 
+    @PatchMapping("/{id}/baja-logica")
+    public ResponseEntity<?> darDeBajaLogica(@PathVariable Integer id) {
+        try {
+            UsuarioDTO actualizado = usuarioService.darDeBajaLogica(id);
+            return ResponseEntity.ok(actualizado);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> eliminar(@PathVariable Integer id) {
-        usuarioService.eliminarUsuario(id);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<?> eliminar(@PathVariable Integer id) {
+        // En lugar de eliminación física, realiza baja lógica manteniendo integridad y trazabilidad
+        try {
+            UsuarioDTO actualizado = usuarioService.darDeBajaLogica(id);
+            return ResponseEntity.ok(actualizado);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 }
