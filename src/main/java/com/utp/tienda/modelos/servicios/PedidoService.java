@@ -45,7 +45,7 @@ public class PedidoService {
             }
         }
         if ("transferencia".equals(metodoPago) && opPago.isBlank() && urlComprobantePago.isBlank()) {
-            throw new IllegalArgumentException("Para pagar por transferencia adjunta la captura del abono o el número de operación.");
+            throw new IllegalArgumentException("Para pagar por transferencia ingresa el número de operación bancaria.");
         }
 
         Pedido pedido = new Pedido();
