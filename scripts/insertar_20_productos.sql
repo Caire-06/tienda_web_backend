@@ -242,3 +242,4 @@ WHERE NOT EXISTS (
     FROM productos p
     WHERE p.nombre = v.nombre
 );
+
