@@ -31,3 +31,8 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Secrets / variables locales (no subir al repo) ###
+.env
+.env.local
+
