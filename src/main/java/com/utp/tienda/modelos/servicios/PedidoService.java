@@ -85,6 +85,21 @@ public class PedidoService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<PedidoDTO> listarTodos() {
+        return pedidos.findAllByOrderByFechaDesc().stream()
+                .map(this::mapear)
+                .toList();
+    }
+
+    @Transactional
+    public PedidoDTO actualizarEstado(String numero, String nuevoEstado) {
+        Pedido p = pedidos.findByNumero(numero)
+                .orElseThrow(() -> new IllegalArgumentException("Pedido no encontrado: " + numero));
+        p.setEstado(nuevoEstado);
+        return mapear(pedidos.save(p));
+    }
+
     private PedidoDTO mapear(Pedido p) {
         List<ItemPedidoDTO> items = p.getDetalles().stream()
                 .map(d -> new ItemPedidoDTO(d.getProductoId(), d.getNombre(), d.getPrecioUnitario(), d.getCantidad(), d.getImagen()))
@@ -95,7 +110,13 @@ public class PedidoService {
             comp = new ComprobanteDTO(c.getTipo(), c.getDocumento(), c.getNombreRazonSocial(), c.getDireccionFiscal(), c.getSubtotal(), c.getIgv(), c.getTotal());
         }
         String fecha = p.getFecha() != null ? p.getFecha().format(FECHA_FMT) : "";
-        return new PedidoDTO(p.getNumero(), fecha, p.getEstado(), p.getTipoEntrega(), p.getMetodoPago(), p.getTotal(), items, comp);
+        String cliente = "Cliente";
+        if (p.getComprobante() != null && p.getComprobante().getNombreRazonSocial() != null && !p.getComprobante().getNombreRazonSocial().isBlank()) {
+            cliente = p.getComprobante().getNombreRazonSocial();
+        } else if (p.getUsuario() != null) {
+            cliente = p.getUsuario().getNombreUsuario();
+        }
+        return new PedidoDTO(p.getNumero(), fecha, cliente, p.getEstado(), p.getTipoEntrega(), p.getMetodoPago(), p.getTotal(), items, comp);
     }
 
     private String generarNumero() {

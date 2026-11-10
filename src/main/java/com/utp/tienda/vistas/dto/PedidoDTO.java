@@ -6,6 +6,7 @@ import java.util.List;
 public record PedidoDTO(
         String numero,
         String fecha,
+        String cliente,
         String estado,
         String tipoEntrega,
         String metodoPago,
