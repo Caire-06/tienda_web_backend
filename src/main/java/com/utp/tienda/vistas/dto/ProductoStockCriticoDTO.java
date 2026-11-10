@@ -9,3 +9,4 @@ public record ProductoStockCriticoDTO(
         Integer stock,
         BigDecimal precio
 ) {}
+

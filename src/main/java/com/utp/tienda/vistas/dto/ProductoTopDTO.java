@@ -10,3 +10,4 @@ public record ProductoTopDTO(
         BigDecimal precio,
         Double porcentaje
 ) {}
+

@@ -17,3 +17,4 @@ public record DashboardKpisDTO(
         List<ProductoTopDTO> topProductos,
         List<PedidoDTO> ultimasVentas
 ) {}
+

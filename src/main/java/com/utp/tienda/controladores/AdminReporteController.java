@@ -31,3 +31,4 @@ public class AdminReporteController {
         return ResponseEntity.ok(reportesAdminService.generarReporte("todos"));
     }
 }
+

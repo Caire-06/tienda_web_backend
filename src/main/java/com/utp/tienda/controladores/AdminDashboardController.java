@@ -28,3 +28,4 @@ public class AdminDashboardController {
         return ResponseEntity.ok(dashboardAdminService.obtenerKpis());
     }
 }
+
