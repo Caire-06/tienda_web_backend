@@ -35,14 +35,14 @@ public class ProductoService {
     private record ProductoSeed(String nombre, String categoria, BigDecimal precio, Integer stock, Integer vendidos, String imagen, String descripcion) {}
 
     private static final List<ProductoSeed> PRODUCTOS_INICIALES = List.of(
-            new ProductoSeed("Mouse Logitech G502 HERO", "Periféricos", new BigDecimal("229"), 20, 38, "mouse-g502.webp", "Mouse gamer alámbrico 25K DPI, 11 botones programables."),
-            new ProductoSeed("Audífonos Sony WH-1000XM4", "Audio", new BigDecimal("1049"), 12, 45, "sony-xm4.webp", "Audífonos bluetooth con noise cancelling, 30h de batería."),
-            new ProductoSeed("Teclado Redragon Fizz Pro K616 RGB", "Periféricos", new BigDecimal("215"), 0, 25, "teclado-redragon.webp", "Teclado mecánico inalámbrico, RGB, 87 teclas."),
-            new ProductoSeed("Laptop Lenovo IdeaPad Slim 3 Ryzen 7 / 16GB / 512GB", "Computadoras", new BigDecimal("2599"), 8, 12, "lenovo-slim3.webp", "15.6\" FHD, Ryzen 7 serie 5000, 16GB RAM, 512GB SSD."),
-            new ProductoSeed("Samsung Galaxy A55 5G 8GB / 128GB", "Smartphones", new BigDecimal("1481"), 15, 30, "galaxy-a55.webp", "Pantalla 6.6\" Super AMOLED 120Hz, cámara 50MP, batería 5000mAh."),
-            new ProductoSeed("Kit Cargador Xiaomi 65W USB-C", "Accesorios", new BigDecimal("59"), 50, 19, "cargador-65w.webp", "Carga rápida 65W con cable USB-C incluido."),
-            new ProductoSeed("Monitor Xiaomi G27Qi 27\" 2K 200Hz", "Computadoras", new BigDecimal("729"), 6, 15, "monitor-xiaomi.webp", "27\" QHD IPS, 200Hz, 1ms, HDR400, FreeSync Gaming."),
-            new ProductoSeed("Parlante JBL Flip 7 Bluetooth", "Audio", new BigDecimal("329"), 18, 28, "jbl-flip7.webp", "Bluetooth 5.4, resistente al agua IP67, 14h de reproducción.")
+            new ProductoSeed("Mouse Logitech G502 HERO", "Periféricos", new BigDecimal("229"), 20, 38, "https://res.cloudinary.com/svlpcuhv/image/upload/v1794283457/techstore/productos/x0tf8pobbhkai8ja3rki.webp", "Mouse gamer alámbrico 25K DPI, 11 botones programables."),
+            new ProductoSeed("Audífonos Sony WH-1000XM4", "Audio", new BigDecimal("1049"), 12, 45, "https://res.cloudinary.com/svlpcuhv/image/upload/v1794282995/techstore/productos/wq2rgb2dqa3brrbeqxjj.webp", "Audífonos bluetooth con noise cancelling, 30h de batería."),
+            new ProductoSeed("Teclado Redragon Fizz Pro K616 RGB", "Periféricos", new BigDecimal("215"), 0, 25, "https://res.cloudinary.com/svlpcuhv/image/upload/v1794283650/techstore/productos/otje91i9tsezcdkaso9o.webp", "Teclado mecánico inalámbrico, RGB, 87 teclas."),
+            new ProductoSeed("Laptop Lenovo IdeaPad Slim 3 Ryzen 7 / 16GB / 512GB", "Computadoras", new BigDecimal("2599"), 8, 12, "https://res.cloudinary.com/svlpcuhv/image/upload/v1794283309/techstore/productos/pqnx12wxjenwsjti2t6k.webp", "15.6\" FHD, Ryzen 7 serie 5000, 16GB RAM, 512GB SSD."),
+            new ProductoSeed("Samsung Galaxy A55 5G 8GB / 128GB", "Smartphones", new BigDecimal("1481"), 15, 30, "https://res.cloudinary.com/svlpcuhv/image/upload/v1794283605/techstore/productos/vdjvpqg0bp7c3155bkns.webp", "Pantalla 6.6\" Super AMOLED 120Hz, cámara 50MP, batería 5000mAh."),
+            new ProductoSeed("Kit Cargador Xiaomi 65W USB-C", "Accesorios", new BigDecimal("59"), 50, 19, "https://res.cloudinary.com/svlpcuhv/image/upload/v1794283243/techstore/productos/tptqy0iyesqri08kaof4.webp", "Carga rápida 65W con cable USB-C incluido."),
+            new ProductoSeed("Monitor Xiaomi G27Qi 27\" 2K 200Hz", "Computadoras", new BigDecimal("729"), 6, 15, "https://res.cloudinary.com/svlpcuhv/image/upload/v1794283375/techstore/productos/zps0k73wpbdt05w0yuh9.webp", "27\" QHD IPS, 200Hz, 1ms, HDR400, FreeSync Gaming."),
+            new ProductoSeed("Parlante JBL Flip 7 Bluetooth", "Audio", new BigDecimal("329"), 18, 28, "https://res.cloudinary.com/svlpcuhv/image/upload/v1794283548/techstore/productos/bfowowyk2orloct81aqe.webp", "Bluetooth 5.4, resistente al agua IP67, 14h de reproducción.")
     );
 
     @Transactional(readOnly = true)
