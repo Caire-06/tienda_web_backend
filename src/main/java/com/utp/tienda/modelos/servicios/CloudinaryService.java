@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.Base64;
 import java.util.Map;
 
 /**
@@ -40,6 +41,17 @@ public class CloudinaryService {
                     Map.of("folder", "techstore/productos")
             );
             return resultado;
+        } catch (Exception e) {
+            throw new RuntimeException("No se pudo subir la imagen a Cloudinary: " + e.getMessage(), e);
+        }
+    }
+
+    /** Sube un archivo (nombre + bytes) a Cloudinary (carpeta techstore/productos) y devuelve { url, publicId }. */
+    public Map<String, Object> subir(String nombreArchivo, byte[] contenido) {
+        try {
+            Cloudinary cloudinary = crearCloudinary();
+            String base64 = Base64.getEncoder().encodeToString(contenido);
+            return cloudinary.uploader().upload("data:image/webp;base64," + base64, Map.of("folder", "techstore/productos", "original_filename", nombreArchivo));
         } catch (Exception e) {
             throw new RuntimeException("No se pudo subir la imagen a Cloudinary: " + e.getMessage(), e);
         }
