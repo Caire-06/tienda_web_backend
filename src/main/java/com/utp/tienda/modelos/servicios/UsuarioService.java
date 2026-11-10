@@ -279,13 +279,18 @@ public class UsuarioService {
 
     /**
      * Genera una contraseña temporal determinística a partir de nombre, apellido y DNI.
-     * Formato: PrimerNombre.PrimerApellido + DNI (ej. Juan.Perez78901234).
+     * Formato: primera letra del nombre (mayúscula) + primer apellido (minúscula) + últimos 3 dígitos del DNI
+     * (ej. Carlos + Castro + 96969696 -> Ccastro696).
      */
     public static String generarPasswordTemporal(String nombres, String apellidos, String dni) {
         String parteNombre = normalizarSegmentoNombre(nombres, "Usuario");
         String parteApellido = normalizarSegmentoNombre(apellidos, "Tech");
-        String parteDni = dni != null ? dni.replaceAll("\\D", "") : "";
-        return parteNombre + "." + parteApellido + parteDni;
+        String digitosDni = dni != null ? dni.replaceAll("\\D", "") : "";
+        String ultimos3Dni = digitosDni.length() >= 3
+                ? digitosDni.substring(digitosDni.length() - 3)
+                : digitosDni;
+        String inicial = String.valueOf(Character.toUpperCase(parteNombre.charAt(0)));
+        return inicial + parteApellido.toLowerCase() + ultimos3Dni;
     }
 
     private static String normalizarTipoContacto(String tipo, String respaldo) {
