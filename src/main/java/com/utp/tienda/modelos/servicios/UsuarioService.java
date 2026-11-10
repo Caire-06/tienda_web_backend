@@ -170,6 +170,7 @@ public class UsuarioService {
 
         if (nuevoUsername != null) usuario.setNombreUsuario(nuevoUsername);
         if (bloqueado != null) usuario.setBloqueado(bloqueado);
+        usuario.setFechaActualizacion(LocalDateTime.now());
 
         return usuarioRepository.save(usuario);
     }
@@ -247,6 +248,7 @@ public class UsuarioService {
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado con ID: " + id));
         Rol rol = resolverRolPermitido(nombreRol);
         usuario.setRol(rol);
+        usuario.setFechaActualizacion(LocalDateTime.now());
         return mapearUsuarioDTO(usuarioRepository.save(usuario));
     }
 
@@ -261,6 +263,7 @@ public class UsuarioService {
             usuario.setBloqueadoHasta(null);
             usuario.setNivelBloqueo(0);
         }
+        usuario.setFechaActualizacion(LocalDateTime.now());
         return mapearUsuarioDTO(usuarioRepository.save(usuario));
     }
 
