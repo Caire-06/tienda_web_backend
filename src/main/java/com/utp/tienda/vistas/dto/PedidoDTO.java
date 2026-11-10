@@ -18,9 +18,14 @@ public record PedidoDTO(
         String empresaTransporte,
         String fechaProcesando,
         String fechaEnvio,
-        String fechaEntrega
+        String fechaEntrega,
+        String estadoPago,
+        String codigoOperacionPago,
+        String comprobantePagoUrl,
+        String fechaConfirmacionPago,
+        String usuarioConfirmoPago
 ) {
     public PedidoDTO(String numero, String fecha, String cliente, String estado, String tipoEntrega, String metodoPago, BigDecimal total, List<ItemPedidoDTO> items, ComprobanteDTO comprobante) {
-        this(numero, fecha, cliente, estado, tipoEntrega, metodoPago, BigDecimal.ZERO, total, items, comprobante, null, null, null, null, null);
+        this(numero, fecha, cliente, estado, tipoEntrega, metodoPago, BigDecimal.ZERO, total, items, comprobante, null, null, null, null, null, "Pagado", null, null, null, null);
     }
 }

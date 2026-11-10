@@ -10,5 +10,6 @@ public record UsuarioDTO(
         Boolean bloqueado,
         String estado,
         String fechaRegistro,
-        String ultimoAcceso
+        String ultimoAcceso,
+        Boolean requiereCambioPassword
 ) {}
