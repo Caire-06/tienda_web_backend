@@ -58,6 +58,10 @@ public class Pedido {
     @OneToOne(mappedBy = "pedido", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private ComprobantePedido comprobante;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_despacho_lote")
+    private DespachoLote despachoLote;
+
     public Pedido() {}
 
     public Integer getIdPedido() { return idPedido; }
@@ -104,4 +108,7 @@ public class Pedido {
 
     public ComprobantePedido getComprobante() { return comprobante; }
     public void setComprobante(ComprobantePedido comprobante) { this.comprobante = comprobante; }
+
+    public DespachoLote getDespachoLote() { return despachoLote; }
+    public void setDespachoLote(DespachoLote despachoLote) { this.despachoLote = despachoLote; }
 }

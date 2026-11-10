@@ -94,6 +94,11 @@ public class DashboardAdminService {
 
         long stockCriticoCount = criticos.size();
 
+        long pedidosPendientesDespacho = pedidos.stream()
+                .filter(p -> p.getDespachoLote() == null)
+                .filter(p -> !"Cancelado".equalsIgnoreCase(p.getEstado()) && !"Entregado".equalsIgnoreCase(p.getEstado()))
+                .count();
+
         // Top 5 más vendidos
         int maxVendidos = productos.stream()
                 .mapToInt(p -> p.getVendidos() != null ? p.getVendidos() : 0)
@@ -137,6 +142,7 @@ public class DashboardAdminService {
                 usuariosActivos,
                 usuariosInactivos,
                 stockCriticoCount,
+                pedidosPendientesDespacho,
                 criticos,
                 topProductos,
                 ultimasVentas
