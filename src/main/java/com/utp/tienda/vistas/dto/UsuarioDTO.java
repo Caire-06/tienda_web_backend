@@ -11,3 +11,4 @@ public record UsuarioDTO(
         String fechaRegistro,
         String ultimoAcceso
 ) {}
+
