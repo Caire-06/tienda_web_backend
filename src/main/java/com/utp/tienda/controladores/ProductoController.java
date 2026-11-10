@@ -99,8 +99,24 @@ public class ProductoController {
                                      @org.springframework.web.bind.annotation.RequestHeader(value = "Authorization", required = false) String auth) {
         Integer usuarioId = usuarioIdO401(auth);
         if (usuarioId == null) return noAutorizado();
-        productos.eliminar(id);
-        return ResponseEntity.noContent().build();
+        try {
+            productos.eliminar(id);
+            return ResponseEntity.noContent().build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /** POST /api/productos/seed -> registra los productos iniciales con sus imagenes subidas a Cloudinary. */
+    @PostMapping("/seed")
+    public ResponseEntity<?> seed(@org.springframework.web.bind.annotation.RequestHeader(value = "Authorization", required = false) String auth) {
+        Integer usuarioId = usuarioIdO401(auth);
+        if (usuarioId == null) return noAutorizado();
+        try {
+            return ResponseEntity.ok(productos.registrarProductosIniciales());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
+        }
     }
 
     /** POST /api/productos/imagen -> subir archivo a Cloudinary (multipart) y devolver URL + publicId. */
