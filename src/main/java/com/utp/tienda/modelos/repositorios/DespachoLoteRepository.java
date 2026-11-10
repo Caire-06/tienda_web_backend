@@ -13,3 +13,4 @@ public interface DespachoLoteRepository extends JpaRepository<DespachoLote, Inte
     Optional<DespachoLote> findByCodigoLote(String codigoLote);
     boolean existsByCodigoLote(String codigoLote);
 }
+

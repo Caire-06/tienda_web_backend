@@ -18,3 +18,4 @@ public record DespachoLoteDTO(
         BigDecimal totalValorizado,
         List<String> numerosPedidos
 ) {}
+

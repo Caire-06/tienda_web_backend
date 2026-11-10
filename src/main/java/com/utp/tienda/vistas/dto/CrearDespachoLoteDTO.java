@@ -16,3 +16,4 @@ public record CrearDespachoLoteDTO(
         String placaVehiculo,
         String observaciones
 ) {}
+

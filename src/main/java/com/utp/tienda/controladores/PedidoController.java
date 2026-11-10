@@ -63,8 +63,10 @@ public class PedidoController {
             return ResponseEntity.badRequest().body(Map.of("error", "Estado requerido"));
         }
         try {
-            PedidoDTO actualizado = pedidos.actualizarEstado(numero, nuevoEstado);
+            PedidoDTO actualizado = pedidos.actualizarEstado(id, numero, nuevoEstado);
             return ResponseEntity.ok(actualizado);
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
         }

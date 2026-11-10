@@ -94,6 +94,18 @@ public class PedidoService {
 
     @Transactional
     public PedidoDTO actualizarEstado(String numero, String nuevoEstado) {
+        return actualizarEstado(null, numero, nuevoEstado);
+    }
+
+    @Transactional
+    public PedidoDTO actualizarEstado(Integer usuarioId, String numero, String nuevoEstado) {
+        if (usuarioId != null) {
+            Usuario u = usuarios.findById(usuarioId).orElse(null);
+            String rol = u != null && u.getRol() != null ? u.getRol().getNombreRol() : "";
+            if ("CLIENTE".equalsIgnoreCase(rol)) {
+                throw new SecurityException("Solo personal autorizado de Almacén puede cambiar el estado del pedido.");
+            }
+        }
         Pedido p = pedidos.findByNumero(numero)
                 .orElseThrow(() -> new IllegalArgumentException("Pedido no encontrado: " + numero));
         p.setEstado(nuevoEstado);
