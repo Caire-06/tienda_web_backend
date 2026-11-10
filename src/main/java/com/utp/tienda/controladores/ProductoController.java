@@ -40,23 +40,16 @@ public class ProductoController {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Sesión inválida"));
     }
 
-    /** GET /api/productos -> listar productos (rol autenticado). */
+    /** GET /api/productos -> listar catálogo público de productos (sin requerir sesión). */
     @GetMapping
     public ResponseEntity<List<ProductoDTO>> listar(@org.springframework.web.bind.annotation.RequestHeader(value = "Authorization", required = false) String auth) {
-        Integer usuarioId = usuarioIdO401(auth);
-        if (usuarioId == null) {
-            List<ProductoDTO> vacia = List.of();
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(vacia);
-        }
         return ResponseEntity.ok(productos.listar());
     }
 
-    /** GET /api/productos/{id} -> detalle del producto. */
+    /** GET /api/productos/{id} -> detalle público del producto. */
     @GetMapping("/{id}")
     public ResponseEntity<?> detalle(@PathVariable Integer id,
                                     @org.springframework.web.bind.annotation.RequestHeader(value = "Authorization", required = false) String auth) {
-        Integer usuarioId = usuarioIdO401(auth);
-        if (usuarioId == null) return noAutorizado();
         try {
             return ResponseEntity.ok(productos.detalle(id));
         } catch (IllegalArgumentException e) {
@@ -93,14 +86,43 @@ public class ProductoController {
         }
     }
 
-    /** DELETE /api/productos/{id} -> eliminar producto. */
+    /** PATCH /api/productos/{id}/baja-logica -> baja lógica según 3FN y trazabilidad. */
+    @PatchMapping("/{id}/baja-logica")
+    public ResponseEntity<?> darDeBajaLogica(@PathVariable Integer id,
+                                             @org.springframework.web.bind.annotation.RequestHeader(value = "Authorization", required = false) String auth) {
+        Integer usuarioId = usuarioIdO401(auth);
+        if (usuarioId == null) return noAutorizado();
+        try {
+            return ResponseEntity.ok(productos.darDeBajaLogica(id));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /** DELETE /api/productos/{id} -> eliminar producto (aplica baja lógica). */
     @DeleteMapping("/{id}")
     public ResponseEntity<?> eliminar(@PathVariable Integer id,
                                      @org.springframework.web.bind.annotation.RequestHeader(value = "Authorization", required = false) String auth) {
         Integer usuarioId = usuarioIdO401(auth);
         if (usuarioId == null) return noAutorizado();
-        productos.eliminar(id);
-        return ResponseEntity.noContent().build();
+        try {
+            productos.eliminar(id);
+            return ResponseEntity.noContent().build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /** POST /api/productos/seed -> registra los productos iniciales con sus imagenes subidas a Cloudinary. */
+    @PostMapping("/seed")
+    public ResponseEntity<?> seed(@org.springframework.web.bind.annotation.RequestHeader(value = "Authorization", required = false) String auth) {
+        Integer usuarioId = usuarioIdO401(auth);
+        if (usuarioId == null) return noAutorizado();
+        try {
+            return ResponseEntity.ok(productos.registrarProductosIniciales());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
+        }
     }
 
     /** POST /api/productos/imagen -> subir archivo a Cloudinary (multipart) y devolver URL + publicId. */

@@ -11,5 +11,6 @@ import java.util.Optional;
 public interface PedidoRepository extends JpaRepository<Pedido, Integer> {
     Optional<Pedido> findByNumero(String numero);
     List<Pedido> findByUsuario_IdUsuarioOrderByFechaDesc(Integer idUsuario);
+    List<Pedido> findAllByOrderByFechaDesc();
     boolean existsByNumero(String numero);
 }

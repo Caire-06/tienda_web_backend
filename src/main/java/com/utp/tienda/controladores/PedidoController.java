@@ -44,4 +44,31 @@ public class PedidoController {
         List<PedidoDTO> lista = pedidos.misCompras(id);
         return ResponseEntity.ok(lista);
     }
+
+    @GetMapping
+    public ResponseEntity<?> listarTodos(@RequestHeader(value = "Authorization", required = false) String auth) {
+        Integer id = sesiones.identificar(auth);
+        if (id == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Sesión inválida"));
+        return ResponseEntity.ok(pedidos.listarTodos());
+    }
+
+    @PutMapping("/{numero}/estado")
+    public ResponseEntity<?> actualizarEstado(@RequestHeader(value = "Authorization", required = false) String auth,
+                                              @PathVariable String numero,
+                                              @RequestBody Map<String, String> body) {
+        Integer id = sesiones.identificar(auth);
+        if (id == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Sesión inválida"));
+        String nuevoEstado = body.get("estado");
+        if (nuevoEstado == null || nuevoEstado.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Estado requerido"));
+        }
+        try {
+            PedidoDTO actualizado = pedidos.actualizarEstado(id, numero, nuevoEstado);
+            return ResponseEntity.ok(actualizado);
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        }
+    }
 }

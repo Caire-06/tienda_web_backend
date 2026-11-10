@@ -45,6 +45,18 @@ public class Usuario {
     @Column(name = "token_recuperacion", length = 255)
     private String tokenRecuperacion;
 
+    @Column(name = "estado", length = 15)
+    private String estado = "Activo";
+
+    @Column(name = "fecha_creacion")
+    private LocalDateTime fechaCreacion = LocalDateTime.now();
+
+    @Column(name = "fecha_actualizacion")
+    private LocalDateTime fechaActualizacion = LocalDateTime.now();
+
+    @Column(name = "usuario_registro", length = 50)
+    private String usuarioRegistro = "SISTEMA";
+
     public Usuario() {}
 
     public Usuario(String nombreUsuario, String contrasena, Rol rol) {
@@ -87,5 +99,17 @@ public class Usuario {
 
     public String getTokenRecuperacion() { return tokenRecuperacion; }
     public void setTokenRecuperacion(String tokenRecuperacion) { this.tokenRecuperacion = tokenRecuperacion; }
+
+    public String getEstado() { return estado != null ? estado : (getBloqueado() ? "Inactivo" : "Activo"); }
+    public void setEstado(String estado) { this.estado = estado; }
+
+    public LocalDateTime getFechaCreacion() { return fechaCreacion; }
+    public void setFechaCreacion(LocalDateTime fechaCreacion) { this.fechaCreacion = fechaCreacion; }
+
+    public LocalDateTime getFechaActualizacion() { return fechaActualizacion; }
+    public void setFechaActualizacion(LocalDateTime fechaActualizacion) { this.fechaActualizacion = fechaActualizacion; }
+
+    public String getUsuarioRegistro() { return usuarioRegistro; }
+    public void setUsuarioRegistro(String usuarioRegistro) { this.usuarioRegistro = usuarioRegistro; }
 }
 
