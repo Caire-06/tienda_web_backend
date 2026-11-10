@@ -3,6 +3,7 @@ package com.utp.tienda.controladores;
 import com.utp.tienda.modelos.servicios.SesionService;
 import com.utp.tienda.modelos.servicios.UsuarioService;
 import com.utp.tienda.vistas.dto.CrearUsuarioAdminDTO;
+import com.utp.tienda.vistas.dto.UsuarioCreadoAdminDTO;
 import com.utp.tienda.vistas.dto.UsuarioDTO;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -37,9 +38,9 @@ public class UsuarioController {
     @PostMapping
     public ResponseEntity<?> registrar(@Valid @RequestBody CrearUsuarioAdminDTO body) {
         try {
-            UsuarioDTO creado = usuarioService.crearUsuarioDesdeAdmin(body);
+            UsuarioCreadoAdminDTO creado = usuarioService.crearUsuarioDesdeAdmin(body);
             return ResponseEntity.status(HttpStatus.CREATED).body(creado);
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException | IllegalStateException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }

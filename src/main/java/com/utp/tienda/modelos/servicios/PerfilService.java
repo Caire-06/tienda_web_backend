@@ -3,8 +3,10 @@ package com.utp.tienda.modelos.servicios;
 import com.utp.tienda.modelos.entidades.*;
 import com.utp.tienda.modelos.repositorios.*;
 import com.utp.tienda.vistas.dto.*;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -15,16 +17,19 @@ public class PerfilService {
     private final TelefonoRepository telefonos;
     private final DireccionRepository direcciones;
     private final DistritoRepository distritos;
+    private final PasswordEncryptionStrategy encryptionStrategy;
 
     public PerfilService(UsuarioRepository usuarios, DatosPersonalesRepository datosRepo,
                          CorreoElectronicoRepository correos, TelefonoRepository telefonos,
-                         DireccionRepository direcciones, DistritoRepository distritos) {
+                         DireccionRepository direcciones, DistritoRepository distritos,
+                         @Qualifier("sha256Strategy") PasswordEncryptionStrategy encryptionStrategy) {
         this.usuarios = usuarios;
         this.datosRepo = datosRepo;
         this.correos = correos;
         this.telefonos = telefonos;
         this.direcciones = direcciones;
         this.distritos = distritos;
+        this.encryptionStrategy = encryptionStrategy;
     }
 
     @Transactional(readOnly = true)
@@ -43,7 +48,8 @@ public class PerfilService {
         return new PerfilDTO(idUsuario, datos.getNombres(), datos.getApellidos(), datos.getDni(),
             correo, telefono, dir == null ? "" : dir.getCalleAvenida(),
             dir == null || dir.getDistrito() == null ? "" : dir.getDistrito().getNombreDistrito(),
-            usuario.getRol() == null ? "" : usuario.getRol().getNombreRol());
+            usuario.getRol() == null ? "" : usuario.getRol().getNombreRol(),
+            Boolean.TRUE.equals(usuario.getRequiereCambioPassword()));
     }
 
     @Transactional
@@ -97,5 +103,29 @@ public class PerfilService {
             }
         }
         return consultar(idUsuario);
+    }
+
+    @Transactional
+    public void cambiarPassword(Integer idUsuario, CambiarPasswordDTO request) {
+        Usuario usuario = usuarios.findById(idUsuario)
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
+
+        String actual = request.passwordActual() != null ? request.passwordActual() : "";
+        String nueva = request.passwordNueva() != null ? request.passwordNueva().trim() : "";
+
+        if (!encryptionStrategy.verificar(actual, usuario.getContrasena())) {
+            throw new IllegalArgumentException("La contraseña actual es incorrecta.");
+        }
+        if (nueva.length() < 6) {
+            throw new IllegalArgumentException("La nueva contraseña debe tener al menos 6 caracteres.");
+        }
+        if (nueva.equals(actual)) {
+            throw new IllegalArgumentException("La nueva contraseña debe ser diferente a la actual.");
+        }
+
+        usuario.setContrasena(encryptionStrategy.encriptar(nueva));
+        usuario.setRequiereCambioPassword(false);
+        usuario.setFechaActualizacion(LocalDateTime.now());
+        usuarios.save(usuario);
     }
 }

@@ -10,10 +10,16 @@ public class LoginResponseDTO {
     private String rol;
     private String nombreUsuario;
     private Integer segundosEspera;
+    private boolean requiereCambioPassword;
 
     public LoginResponseDTO() {}
 
     public static LoginResponseDTO exito(String mensaje, String token, String rol, String nombreUsuario) {
+        return exito(mensaje, token, rol, nombreUsuario, false);
+    }
+
+    public static LoginResponseDTO exito(String mensaje, String token, String rol, String nombreUsuario,
+                                         boolean requiereCambioPassword) {
         LoginResponseDTO r = new LoginResponseDTO();
         r.exitoso = true;
         r.mensaje = mensaje;
@@ -23,6 +29,7 @@ public class LoginResponseDTO {
         r.cuentaBloqueada = false;
         r.intentosRestantes = 3;
         r.segundosEspera = 0;
+        r.requiereCambioPassword = requiereCambioPassword;
         return r;
     }
 
@@ -51,5 +58,6 @@ public class LoginResponseDTO {
     public String getToken() { return token; }
     public String getRol() { return rol; }
     public String getNombreUsuario() { return nombreUsuario; }
+    public boolean isRequiereCambioPassword() { return requiereCambioPassword; }
 }
 

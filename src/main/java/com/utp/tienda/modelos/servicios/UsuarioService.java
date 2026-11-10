@@ -8,10 +8,12 @@ import com.utp.tienda.patrones.memento.UsuarioMemento;
 import com.utp.tienda.vistas.dto.RegistroRequestDTO;
 import com.utp.tienda.vistas.dto.UsuarioDTO;
 import com.utp.tienda.vistas.dto.CrearUsuarioAdminDTO;
+import com.utp.tienda.vistas.dto.UsuarioCreadoAdminDTO;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.text.Normalizer;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -218,7 +220,8 @@ public class UsuarioService {
                 ? u.getFechaCreacion().format(DateTimeFormatter.ofPattern("d/M/yyyy HH:mm")) 
                 : "Reciente";
 
-        return new UsuarioDTO(u.getIdUsuario(), u.getNombreUsuario(), nombreCompleto, correo, telefono, rol, u.getBloqueado(), estado, fechaRegistro, ultimo);
+        return new UsuarioDTO(u.getIdUsuario(), u.getNombreUsuario(), nombreCompleto, correo, telefono, rol,
+                u.getBloqueado(), estado, fechaRegistro, ultimo, Boolean.TRUE.equals(u.getRequiereCambioPassword()));
     }
 
     @Transactional(readOnly = true)
@@ -261,17 +264,77 @@ public class UsuarioService {
         return mapearUsuarioDTO(usuarioRepository.save(usuario));
     }
 
+    private static String normalizarSegmentoNombre(String valor, String respaldo) {
+        if (valor == null || valor.isBlank()) return respaldo;
+        String primerToken = valor.trim().split("\\s+")[0];
+        String sinTildes = Normalizer.normalize(primerToken, Normalizer.Form.NFD)
+                .replaceAll("\\p{InCombiningDiacriticalMarks}+", "")
+                .replaceAll("[^a-zA-Z]", "");
+        if (sinTildes.isEmpty()) return respaldo;
+        return Character.toUpperCase(sinTildes.charAt(0)) + sinTildes.substring(1).toLowerCase();
+    }
+
+    /**
+     * Genera una contraseña temporal determinística a partir de nombre, apellido y DNI.
+     * Formato: PrimerNombre.PrimerApellido + DNI (ej. Juan.Perez78901234).
+     */
+    public static String generarPasswordTemporal(String nombres, String apellidos, String dni) {
+        String parteNombre = normalizarSegmentoNombre(nombres, "Usuario");
+        String parteApellido = normalizarSegmentoNombre(apellidos, "Tech");
+        String parteDni = dni != null ? dni.replaceAll("\\D", "") : "";
+        return parteNombre + "." + parteApellido + parteDni;
+    }
+
+    private static String normalizarTipoContacto(String tipo, String respaldo) {
+        if (tipo == null || tipo.isBlank()) return respaldo;
+        String limpio = Normalizer.normalize(tipo.trim(), Normalizer.Form.NFD)
+                .replaceAll("\\p{InCombiningDiacriticalMarks}+", "")
+                .toUpperCase();
+        return limpio.length() > 30 ? limpio.substring(0, 30) : limpio;
+    }
+
     @Transactional
-    public UsuarioDTO crearUsuarioDesdeAdmin(CrearUsuarioAdminDTO dto) {
-        String username = dto.username().trim();
+    public UsuarioCreadoAdminDTO crearUsuarioDesdeAdmin(CrearUsuarioAdminDTO dto) {
+        String username = dto.username() != null ? dto.username().trim() : "";
+        if (username.isEmpty()) {
+            throw new IllegalArgumentException("El nombre de usuario es obligatorio.");
+        }
         if (usuarioRepository.existsByNombreUsuario(username)) {
             throw new IllegalArgumentException("El usuario '" + username + "' ya existe.");
         }
-        String nombreRol = (dto.rol() != null && !dto.rol().isBlank()) ? dto.rol().trim().toUpperCase() : "CLIENTE";
+
+        String nombreRol = (dto.rol() != null && !dto.rol().isBlank()) ? dto.rol().trim().toUpperCase() : "ALMACEN";
+        if (!java.util.Set.of("ALMACEN", "ADMINISTRADOR").contains(nombreRol)) {
+            throw new IllegalArgumentException("Desde administración solo se crean usuarios ALMACEN o ADMINISTRADOR.");
+        }
         Rol rol = resolverRolPermitido(nombreRol);
 
-        String hash = encryptionStrategy.encriptar(dto.password().trim());
+        String nombres = dto.nombres() != null ? dto.nombres().trim() : "";
+        String apellidos = dto.apellidos() != null ? dto.apellidos().trim() : "";
+        if (nombres.isEmpty() || apellidos.isEmpty()) {
+            throw new IllegalArgumentException("Nombres y apellidos son obligatorios.");
+        }
+
+        String dniLimpio = dto.dni() != null ? dto.dni().trim() : "";
+        if (!dniLimpio.matches("\\d{8}")) {
+            throw new IllegalArgumentException("El DNI debe tener exactamente 8 dígitos numéricos.");
+        }
+        if (datosPersonalesRepository.findByDni(dniLimpio).isPresent()) {
+            throw new IllegalArgumentException("Ya existe una persona registrada con el DNI " + dniLimpio + ".");
+        }
+
+        if (dto.correo() != null && !dto.correo().isBlank()) {
+            String correoLimpio = dto.correo().trim().toLowerCase();
+            if (correoRepository.existsByCorreoElectronico(correoLimpio)) {
+                throw new IllegalArgumentException("El correo '" + correoLimpio + "' ya está registrado.");
+            }
+        }
+
+        String passwordTemporal = generarPasswordTemporal(nombres, apellidos, dniLimpio);
+        String hash = encryptionStrategy.encriptar(passwordTemporal);
         Usuario nuevo = usuarioFactory.crearUsuario(username, hash, rol);
+        nuevo.setRequiereCambioPassword(true);
+        nuevo.setUsuarioRegistro("ADMIN");
         Usuario guardado = usuarioRepository.save(nuevo);
 
         Sexo sexoDefault = sexoRepository.findByDescripcion("No Especifica")
@@ -281,9 +344,9 @@ public class UsuarioService {
 
         DatosPersonales dp = new DatosPersonales();
         dp.setUsuario(guardado);
-        dp.setNombres(dto.nombres() != null && !dto.nombres().isBlank() ? dto.nombres().trim() : username);
-        dp.setApellidos(dto.apellidos() != null && !dto.apellidos().isBlank() ? dto.apellidos().trim() : "");
-        dp.setDni("DNI" + String.format("%08d", guardado.getIdUsuario()));
+        dp.setNombres(nombres);
+        dp.setApellidos(apellidos);
+        dp.setDni(dniLimpio);
         dp.setSexo(sexoDefault);
         dp.setEstadoCivil(estadoCivilDefault);
         DatosPersonales dpGuardado = datosPersonalesRepository.save(dp);
@@ -292,7 +355,7 @@ public class UsuarioService {
             CorreoElectronico ce = new CorreoElectronico();
             ce.setDatosPersonales(dpGuardado);
             ce.setCorreoElectronico(dto.correo().trim().toLowerCase());
-            ce.setTipoCorreo("CORPORATIVO");
+            ce.setTipoCorreo(normalizarTipoContacto(dto.tipoCorreo(), "CORPORATIVO"));
             correoRepository.save(ce);
         }
 
@@ -300,10 +363,10 @@ public class UsuarioService {
             Telefono tel = new Telefono();
             tel.setDatosPersonales(dpGuardado);
             tel.setNumeroTelefono(dto.telefono().trim());
-            tel.setTipoTelefono("MOVIL");
+            tel.setTipoTelefono(normalizarTipoContacto(dto.tipoTelefono(), "MOVIL"));
             telefonoRepository.save(tel);
         }
 
-        return mapearUsuarioDTO(guardado);
+        return new UsuarioCreadoAdminDTO(mapearUsuarioDTO(guardado), passwordTemporal);
     }
 }
