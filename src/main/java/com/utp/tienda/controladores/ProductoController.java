@@ -40,16 +40,19 @@ public class ProductoController {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Sesión inválida"));
     }
 
-    /** GET /api/productos -> listar catálogo público de productos (sin requerir sesión). */
+
+    /** GET /api/productos -> listar productos (endpoint PUBLICO: visible para todos). */
     @GetMapping
     public ResponseEntity<List<ProductoDTO>> listar(@org.springframework.web.bind.annotation.RequestHeader(value = "Authorization", required = false) String auth) {
+        // Endpoint publico: el catalogo es visible para todos (con o sin sesion).
         return ResponseEntity.ok(productos.listar());
     }
 
-    /** GET /api/productos/{id} -> detalle público del producto. */
+    /** GET /api/productos/{id} -> detalle del producto (endpoint PUBLICO: visible para todos). */
     @GetMapping("/{id}")
     public ResponseEntity<?> detalle(@PathVariable Integer id,
                                     @org.springframework.web.bind.annotation.RequestHeader(value = "Authorization", required = false) String auth) {
+        // Endpoint publico: el detalle es visible para todos (con o sin sesion).
         try {
             return ResponseEntity.ok(productos.detalle(id));
         } catch (IllegalArgumentException e) {
