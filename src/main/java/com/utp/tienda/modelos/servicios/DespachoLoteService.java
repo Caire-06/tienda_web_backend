@@ -83,6 +83,10 @@ public class DespachoLoteService {
         for (String numero : dto.numerosPedidos()) {
             Pedido p = pedidoRepository.findByNumero(numero).orElse(null);
             if (p != null) {
+                if ("Por verificar".equalsIgnoreCase(p.getEstadoPago()) || "Pendiente de pago".equalsIgnoreCase(p.getEstado())) {
+                    throw new IllegalArgumentException(
+                            "El pedido " + p.getNumero() + " tiene pago por transferencia pendiente de confirmación por Administración.");
+                }
                 p.setDespachoLote(guardado);
                 if (p.getFechaProcesando() == null) p.setFechaProcesando(ahora);
                 if (p.getFechaEnvio() == null) p.setFechaEnvio(ahora);
@@ -156,7 +160,10 @@ public class DespachoLoteService {
     public List<PedidoDTO> listarPedidosPendientesDespacho() {
         return pedidoRepository.findAllByOrderByFechaDesc().stream()
                 .filter(p -> p.getDespachoLote() == null)
-                .filter(p -> !"Cancelado".equalsIgnoreCase(p.getEstado()) && !"Entregado".equalsIgnoreCase(p.getEstado()))
+                .filter(p -> !"Cancelado".equalsIgnoreCase(p.getEstado())
+                        && !"Entregado".equalsIgnoreCase(p.getEstado())
+                        && !"Pendiente de pago".equalsIgnoreCase(p.getEstado())
+                        && !"Por verificar".equalsIgnoreCase(p.getEstadoPago()))
                 .map(pedidoService::mapear)
                 .toList();
     }

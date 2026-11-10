@@ -57,6 +57,9 @@ public class Usuario {
     @Column(name = "usuario_registro", length = 50)
     private String usuarioRegistro = "SISTEMA";
 
+    @Column(name = "requiere_cambio_password")
+    private Boolean requiereCambioPassword = false;
+
     public Usuario() {}
 
     public Usuario(String nombreUsuario, String contrasena, Rol rol) {
@@ -111,5 +114,8 @@ public class Usuario {
 
     public String getUsuarioRegistro() { return usuarioRegistro; }
     public void setUsuarioRegistro(String usuarioRegistro) { this.usuarioRegistro = usuarioRegistro; }
+
+    public Boolean getRequiereCambioPassword() { return Boolean.TRUE.equals(requiereCambioPassword); }
+    public void setRequiereCambioPassword(Boolean requiereCambioPassword) { this.requiereCambioPassword = requiereCambioPassword; }
 }
 

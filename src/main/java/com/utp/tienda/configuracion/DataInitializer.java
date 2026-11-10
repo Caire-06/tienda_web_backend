@@ -118,15 +118,21 @@ public class DataInitializer implements CommandLineRunner {
         estadoCivilRepository.findByDescripcion("Casado(a)")
                 .orElseGet(() -> estadoCivilRepository.save(new EstadoCivil(null, "Casado(a)")));
 
-        // 3. Roles y Permisos
+        // 3. Roles y Permisos (3 roles del sistema: ADMINISTRADOR, ALMACEN, CLIENTE)
         Rol rolAdmin = rolRepository.findByNombreRol("ADMINISTRADOR")
                 .orElseGet(() -> rolRepository.save(new Rol(null, "ADMINISTRADOR", "Acceso total y configuración del sistema")));
         Rol rolAlmacen = rolRepository.findByNombreRol("ALMACEN")
-                .orElseGet(() -> rolRepository.save(new Rol(null, "ALMACEN", "Gestión física de inventario, stock y kardex")));
-        rolRepository.findByNombreRol("OPERADOR")
-                .orElseGet(() -> rolRepository.save(new Rol(null, "OPERADOR", "Gestión operativa de compras y ventas")));
+                .orElseGet(() -> rolRepository.save(new Rol(null, "ALMACEN", "Gestión física de inventario, stock, kardex y despachos")));
         rolRepository.findByNombreRol("CLIENTE")
                 .orElseGet(() -> rolRepository.save(new Rol(null, "CLIENTE", "Acceso a catálogo y compras")));
+
+        // Consolidar cualquier cuenta previa con rol OPERADOR hacia ALMACEN
+        usuarioRepository.findAll().stream()
+                .filter(u -> u.getRol() != null && "OPERADOR".equalsIgnoreCase(u.getRol().getNombreRol()))
+                .forEach(u -> {
+                    u.setRol(rolAlmacen);
+                    usuarioRepository.save(u);
+                });
 
         Permiso permisoTodo = permisoRepository.findByNombrePermiso("TODO")
                 .orElseGet(() -> permisoRepository.save(new Permiso(null, "TODO", "Acceso total a todos los módulos")));

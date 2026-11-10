@@ -4,11 +4,14 @@ import jakarta.validation.constraints.NotBlank;
 
 public record CrearUsuarioAdminDTO(
         @NotBlank String username,
-        @NotBlank String password,
+        String password,
         String rol,
-        String nombres,
-        String apellidos,
+        @NotBlank String nombres,
+        @NotBlank String apellidos,
+        @NotBlank String dni,
         String correo,
-        String telefono
+        String tipoCorreo,
+        String telefono,
+        String tipoTelefono
 ) {}
 

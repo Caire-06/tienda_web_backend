@@ -88,7 +88,13 @@ public class AuthServiceImpl implements IAuthService {
 
             String token = sesionService.crear(usuario.getIdUsuario());
             String rolNombre = usuario.getRol() != null ? usuario.getRol().getNombreRol() : "CLIENTE";
-            return LoginResponseDTO.exito("Inicio de sesión exitoso", token, rolNombre, usuario.getNombreUsuario());
+            return LoginResponseDTO.exito(
+                    "Inicio de sesión exitoso",
+                    token,
+                    rolNombre,
+                    usuario.getNombreUsuario(),
+                    Boolean.TRUE.equals(usuario.getRequiereCambioPassword())
+            );
         } else {
             // Contraseña errónea: Incrementar contador
             int nuevosIntentos = (usuario.getIntentosFallidos() == null ? 0 : usuario.getIntentosFallidos()) + 1;

@@ -34,13 +34,18 @@ public class CloudinaryService {
 
     /** Sube el archivo a Cloudinary (carpeta techstore/productos) y devuelve { url, publicId }. */
     public Map<String, Object> subir(MultipartFile archivo) {
+        return subir(archivo, "techstore/productos");
+    }
+
+    /** Sube un archivo a la carpeta indicada en Cloudinary y devuelve { url, publicId }. */
+    public Map<String, Object> subir(MultipartFile archivo, String carpeta) {
         try {
             Cloudinary cloudinary = crearCloudinary();
-            Map<String, Object> resultado = cloudinary.uploader().upload(
+            String destino = (carpeta != null && !carpeta.isBlank()) ? carpeta.trim() : "techstore/productos";
+            return cloudinary.uploader().upload(
                     archivo.getBytes(),
-                    Map.of("folder", "techstore/productos")
+                    Map.of("folder", destino)
             );
-            return resultado;
         } catch (Exception e) {
             throw new RuntimeException("No se pudo subir la imagen a Cloudinary: " + e.getMessage(), e);
         }
