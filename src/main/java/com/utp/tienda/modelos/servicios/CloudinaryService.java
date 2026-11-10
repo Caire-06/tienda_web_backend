@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -32,11 +33,11 @@ public class CloudinaryService {
         String key = apiKey != null ? apiKey.trim() : "";
         String secret = apiSecret != null ? apiSecret.trim() : "";
         if (!name.isBlank() && !key.isBlank() && !secret.isBlank()) {
-            return new Cloudinary(Map.of(
-                    "cloud_name", name,
-                    "api_key", key,
-                    "api_secret", secret
-            ));
+            Map<String, String> config = new HashMap<>();
+            config.put("cloud_name", name);
+            config.put("api_key", key);
+            config.put("api_secret", secret);
+            return new Cloudinary(config);
         }
         String url = cloudinaryUrl != null ? cloudinaryUrl.trim() : "";
         if (!url.isBlank()) {
@@ -54,14 +55,20 @@ public class CloudinaryService {
 
     /** Sube un archivo a la carpeta indicada en Cloudinary y devuelve { url, publicId }. */
     public Map<String, Object> subir(MultipartFile archivo, String carpeta) {
+        if (archivo == null || archivo.isEmpty()) {
+            throw new IllegalArgumentException("Selecciona un archivo de imagen válido antes de subir.");
+        }
         try {
             Cloudinary cloudinary = crearCloudinary();
             String destino = (carpeta != null && !carpeta.isBlank()) ? carpeta.trim() : "techstore/productos";
-            return cloudinary.uploader().upload(
-                    archivo.getBytes(),
-                    Map.of("folder", destino)
-            );
+            Map<String, Object> opciones = new HashMap<>();
+            opciones.put("folder", destino);
+            return cloudinary.uploader().upload(archivo.getBytes(), opciones);
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            throw e;
         } catch (Exception e) {
+            System.err.println("[Cloudinary] Error al subir archivo '" + archivo.getOriginalFilename() + "': " + e.getMessage());
+            e.printStackTrace(System.err);
             throw new RuntimeException("No se pudo subir la imagen a Cloudinary: " + e.getMessage(), e);
         }
     }
