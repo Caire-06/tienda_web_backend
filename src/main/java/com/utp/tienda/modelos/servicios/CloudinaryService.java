@@ -15,21 +15,36 @@ import java.util.Map;
 @Service
 public class CloudinaryService {
 
-    @Value("${cloudinary.cloud-name}")
+    @Value("${cloudinary.cloud-name:}")
     private String cloudName;
 
-    @Value("${cloudinary.api-key}")
+    @Value("${cloudinary.api-key:}")
     private String apiKey;
 
-    @Value("${cloudinary.api-secret}")
+    @Value("${cloudinary.api-secret:}")
     private String apiSecret;
 
+    @Value("${cloudinary.url:}")
+    private String cloudinaryUrl;
+
     private Cloudinary crearCloudinary() {
-        return new Cloudinary(Map.of(
-                "cloud_name", cloudName,
-                "api_key", apiKey,
-                "api_secret", apiSecret
-        ));
+        String name = cloudName != null ? cloudName.trim() : "";
+        String key = apiKey != null ? apiKey.trim() : "";
+        String secret = apiSecret != null ? apiSecret.trim() : "";
+        if (!name.isBlank() && !key.isBlank() && !secret.isBlank()) {
+            return new Cloudinary(Map.of(
+                    "cloud_name", name,
+                    "api_key", key,
+                    "api_secret", secret
+            ));
+        }
+        String url = cloudinaryUrl != null ? cloudinaryUrl.trim() : "";
+        if (!url.isBlank()) {
+            return new Cloudinary(url);
+        }
+        throw new IllegalStateException(
+                "Faltan credenciales de Cloudinary (CLOUDINARY_CLOUD_NAME/API_KEY/API_SECRET o CLOUDINARY_URL)."
+        );
     }
 
     /** Sube el archivo a Cloudinary (carpeta techstore/productos) y devuelve { url, publicId }. */

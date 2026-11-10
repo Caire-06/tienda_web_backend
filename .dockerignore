@@ -1,0 +1,8 @@
+.env
+.env.*
+!.env.example
+target/
+.git/
+.mvn/wrapper/maven-wrapper.jar
+.vscode/
+.idea/
