@@ -110,6 +110,8 @@ public class DataInitializer implements CommandLineRunner {
         // 3. Roles y Permisos
         Rol rolAdmin = rolRepository.findByNombreRol("ADMINISTRADOR")
                 .orElseGet(() -> rolRepository.save(new Rol(null, "ADMINISTRADOR", "Acceso total y configuración del sistema")));
+        Rol rolAlmacen = rolRepository.findByNombreRol("ALMACEN")
+                .orElseGet(() -> rolRepository.save(new Rol(null, "ALMACEN", "Gestión física de inventario, stock y kardex")));
         rolRepository.findByNombreRol("OPERADOR")
                 .orElseGet(() -> rolRepository.save(new Rol(null, "OPERADOR", "Gestión operativa de compras y ventas")));
         rolRepository.findByNombreRol("CLIENTE")
@@ -168,6 +170,58 @@ public class DataInitializer implements CommandLineRunner {
             System.out.println(">>> [Hibernate] Usuario 'admin' y perfil 3FN inicializados exitosamente.");
         } else {
             System.out.println(">>> [Hibernate] La base de datos ya cuenta con el usuario 'admin'.");
+        }
+
+        // 5. Usuario Almacén Inicial
+        if (!usuarioRepository.existsByNombreUsuario("almacen")) {
+            Usuario userAlmacen = new Usuario();
+            userAlmacen.setNombreUsuario("almacen");
+            userAlmacen.setContrasena(encryptionStrategy.encriptar("123"));
+            userAlmacen.setRol(rolAlmacen);
+            userAlmacen.setPermiso(permisoTodo);
+            userAlmacen.setIntentosFallidos(0);
+            userAlmacen.setBloqueado(false);
+
+            Usuario almacenGuardado = usuarioRepository.save(userAlmacen);
+
+            // Datos Personales en 3FN para Almacén (Requerido para /api/perfil)
+            DatosPersonales datosAlmacen = new DatosPersonales();
+            datosAlmacen.setUsuario(almacenGuardado);
+            datosAlmacen.setNombres("Carlos");
+            datosAlmacen.setApellidos("Operador Almacén");
+            datosAlmacen.setDni("71234567");
+            datosAlmacen.setSexo(masculino);
+            datosAlmacen.setEstadoCivil(soltero);
+
+            DatosPersonales datosAlmacenGuardados = datosPersonalesRepository.save(datosAlmacen);
+
+            // Correo 1:N
+            CorreoElectronico correoAlmacen = new CorreoElectronico();
+            correoAlmacen.setDatosPersonales(datosAlmacenGuardados);
+            correoAlmacen.setCorreoElectronico("almacen@techstore.com");
+            correoAlmacen.setTipoCorreo("CORPORATIVO");
+            correoRepository.save(correoAlmacen);
+
+            // Teléfono 1:N
+            Telefono telefonoAlmacen = new Telefono();
+            telefonoAlmacen.setDatosPersonales(datosAlmacenGuardados);
+            telefonoAlmacen.setNumeroTelefono("987654322");
+            telefonoAlmacen.setTipoTelefono("MOVIL");
+            telefonoRepository.save(telefonoAlmacen);
+
+            // Dirección en 3FN
+            Direccion dirAlmacen = new Direccion();
+            dirAlmacen.setDatosPersonales(datosAlmacenGuardados);
+            dirAlmacen.setDistrito(sjl);
+            dirAlmacen.setCalleAvenida("Av. Las Flores 124");
+            dirAlmacen.setTipoDireccion("DOMICILIO");
+            dirAlmacen.setNumero("124");
+            dirAlmacen.setReferencia("Almacén Central TechStore");
+            direccionRepository.save(dirAlmacen);
+
+            System.out.println(">>> [Hibernate] Usuario 'almacen' y perfil 3FN inicializados exitosamente.");
+        } else {
+            System.out.println(">>> [Hibernate] La base de datos ya cuenta con el usuario 'almacen'.");
         }
     }
 }
