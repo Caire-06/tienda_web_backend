@@ -13,8 +13,8 @@ public record DashboardKpisDTO(
         Long totalUsuariosActivos,
         Long totalUsuariosInactivos,
         Long stockCriticoCount,
+        Long pedidosPendientesDespacho,
         List<ProductoStockCriticoDTO> productosStockCritico,
         List<ProductoTopDTO> topProductos,
         List<PedidoDTO> ultimasVentas
 ) {}
-

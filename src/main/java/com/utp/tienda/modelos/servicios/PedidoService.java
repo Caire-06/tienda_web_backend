@@ -100,7 +100,7 @@ public class PedidoService {
         return mapear(pedidos.save(p));
     }
 
-    private PedidoDTO mapear(Pedido p) {
+    public PedidoDTO mapear(Pedido p) {
         List<ItemPedidoDTO> items = p.getDetalles().stream()
                 .map(d -> new ItemPedidoDTO(d.getProductoId(), d.getNombre(), d.getPrecioUnitario(), d.getCantidad(), d.getImagen()))
                 .toList();
@@ -116,7 +116,9 @@ public class PedidoService {
         } else if (p.getUsuario() != null) {
             cliente = p.getUsuario().getNombreUsuario();
         }
-        return new PedidoDTO(p.getNumero(), fecha, cliente, p.getEstado(), p.getTipoEntrega(), p.getMetodoPago(), p.getTotal(), items, comp);
+        String codigoLote = p.getDespachoLote() != null ? p.getDespachoLote().getCodigoLote() : null;
+        String empresa = p.getDespachoLote() != null ? p.getDespachoLote().getEmpresaTransporte() : null;
+        return new PedidoDTO(p.getNumero(), fecha, cliente, p.getEstado(), p.getTipoEntrega(), p.getMetodoPago(), p.getTotal(), items, comp, codigoLote, empresa);
     }
 
     private String generarNumero() {
