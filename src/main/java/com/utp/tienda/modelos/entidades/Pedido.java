@@ -28,8 +28,20 @@ public class Pedido {
     @Column(name = "estado", nullable = false, length = 30)
     private String estado;
 
-    @Column(name = "tipo_entrega", length = 20)
+    @Column(name = "tipo_entrega", length = 30)
     private String tipoEntrega;
+
+    @Column(name = "costo_envio", precision = 12, scale = 2)
+    private BigDecimal costoEnvio = BigDecimal.ZERO;
+
+    @Column(name = "fecha_procesando")
+    private LocalDateTime fechaProcesando;
+
+    @Column(name = "fecha_envio")
+    private LocalDateTime fechaEnvio;
+
+    @Column(name = "fecha_entrega")
+    private LocalDateTime fechaEntrega;
 
     @Column(name = "metodo_pago", length = 30)
     private String metodoPago;
@@ -57,6 +69,10 @@ public class Pedido {
 
     @OneToOne(mappedBy = "pedido", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private ComprobantePedido comprobante;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_despacho_lote")
+    private DespachoLote despachoLote;
 
     public Pedido() {}
 
@@ -104,4 +120,19 @@ public class Pedido {
 
     public ComprobantePedido getComprobante() { return comprobante; }
     public void setComprobante(ComprobantePedido comprobante) { this.comprobante = comprobante; }
+
+    public DespachoLote getDespachoLote() { return despachoLote; }
+    public void setDespachoLote(DespachoLote despachoLote) { this.despachoLote = despachoLote; }
+
+    public BigDecimal getCostoEnvio() { return costoEnvio; }
+    public void setCostoEnvio(BigDecimal costoEnvio) { this.costoEnvio = costoEnvio; }
+
+    public LocalDateTime getFechaProcesando() { return fechaProcesando; }
+    public void setFechaProcesando(LocalDateTime fechaProcesando) { this.fechaProcesando = fechaProcesando; }
+
+    public LocalDateTime getFechaEnvio() { return fechaEnvio; }
+    public void setFechaEnvio(LocalDateTime fechaEnvio) { this.fechaEnvio = fechaEnvio; }
+
+    public LocalDateTime getFechaEntrega() { return fechaEntrega; }
+    public void setFechaEntrega(LocalDateTime fechaEntrega) { this.fechaEntrega = fechaEntrega; }
 }

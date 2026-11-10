@@ -8,10 +8,15 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Inicializador automático de datos mediante Hibernate (ORM puro).
- * Se ejecuta al arrancar Spring Boot, garantizando que los catálogos en 3FN
- * y el usuario administrador inicial existan sin necesidad de ejecutar scripts SQL manuales.
+ * Se ejecuta al arrancar Spring Boot, garantizando que los catálogos en 3FN,
+ * usuarios iniciales, productos y ventas de prueba existan en la base de datos PostgreSQL.
  */
 @Component
 public class DataInitializer implements CommandLineRunner {
@@ -29,6 +34,8 @@ public class DataInitializer implements CommandLineRunner {
     private final CorreoElectronicoRepository correoRepository;
     private final TelefonoRepository telefonoRepository;
     private final DireccionRepository direccionRepository;
+    private final ProductoRepository productoRepository;
+    private final PedidoRepository pedidoRepository;
     private final PasswordEncryptionStrategy encryptionStrategy;
 
     public DataInitializer(PaisRepository paisRepository,
@@ -44,6 +51,8 @@ public class DataInitializer implements CommandLineRunner {
                            CorreoElectronicoRepository correoRepository,
                            TelefonoRepository telefonoRepository,
                            DireccionRepository direccionRepository,
+                           ProductoRepository productoRepository,
+                           PedidoRepository pedidoRepository,
                            @Qualifier("sha256Strategy") PasswordEncryptionStrategy encryptionStrategy) {
         this.paisRepository = paisRepository;
         this.departamentoRepository = departamentoRepository;
@@ -58,13 +67,15 @@ public class DataInitializer implements CommandLineRunner {
         this.correoRepository = correoRepository;
         this.telefonoRepository = telefonoRepository;
         this.direccionRepository = direccionRepository;
+        this.productoRepository = productoRepository;
+        this.pedidoRepository = pedidoRepository;
         this.encryptionStrategy = encryptionStrategy;
     }
 
     @Override
     @Transactional
     public void run(String... args) {
-        System.out.println(">>> [Hibernate] Verificando e inicializando catálogos y datos iniciales...");
+        System.out.println(">>> [Hibernate] Verificando e inicializando catálogos y datos iniciales en PostgreSQL...");
 
         // 1. Jerarquía Geográfica en 3FN
         Pais peru = paisRepository.findByNombrePais("Perú")
@@ -110,6 +121,8 @@ public class DataInitializer implements CommandLineRunner {
         // 3. Roles y Permisos
         Rol rolAdmin = rolRepository.findByNombreRol("ADMINISTRADOR")
                 .orElseGet(() -> rolRepository.save(new Rol(null, "ADMINISTRADOR", "Acceso total y configuración del sistema")));
+        Rol rolAlmacen = rolRepository.findByNombreRol("ALMACEN")
+                .orElseGet(() -> rolRepository.save(new Rol(null, "ALMACEN", "Gestión física de inventario, stock y kardex")));
         rolRepository.findByNombreRol("OPERADOR")
                 .orElseGet(() -> rolRepository.save(new Rol(null, "OPERADOR", "Gestión operativa de compras y ventas")));
         rolRepository.findByNombreRol("CLIENTE")
@@ -119,6 +132,7 @@ public class DataInitializer implements CommandLineRunner {
                 .orElseGet(() -> permisoRepository.save(new Permiso(null, "TODO", "Acceso total a todos los módulos")));
 
         // 4. Usuario Administrador Inicial
+        Usuario adminGuardado;
         if (!usuarioRepository.existsByNombreUsuario("admin")) {
             Usuario admin = new Usuario();
             admin.setNombreUsuario("admin");
@@ -128,7 +142,7 @@ public class DataInitializer implements CommandLineRunner {
             admin.setIntentosFallidos(0);
             admin.setBloqueado(false);
 
-            Usuario adminGuardado = usuarioRepository.save(admin);
+            adminGuardado = usuarioRepository.save(admin);
 
             // Datos Personales en 3FN
             DatosPersonales datos = new DatosPersonales();
@@ -165,10 +179,160 @@ public class DataInitializer implements CommandLineRunner {
             direccion.setReferencia("Cerca a la estación del tren");
             direccionRepository.save(direccion);
 
-            System.out.println(">>> [Hibernate] Usuario 'admin' y perfil 3FN inicializados exitosamente.");
+            System.out.println(">>> [Hibernate] Usuario 'admin' inicializado exitosamente.");
         } else {
-            System.out.println(">>> [Hibernate] La base de datos ya cuenta con el usuario 'admin'.");
+            adminGuardado = usuarioRepository.findByNombreUsuario("admin").orElse(null);
+        }
+
+        // 5. Usuario Almacén Inicial
+        if (!usuarioRepository.existsByNombreUsuario("almacen")) {
+            Usuario userAlmacen = new Usuario();
+            userAlmacen.setNombreUsuario("almacen");
+            userAlmacen.setContrasena(encryptionStrategy.encriptar("123"));
+            userAlmacen.setRol(rolAlmacen);
+            userAlmacen.setPermiso(permisoTodo);
+            userAlmacen.setIntentosFallidos(0);
+            userAlmacen.setBloqueado(false);
+
+            Usuario almacenGuardado = usuarioRepository.save(userAlmacen);
+
+            DatosPersonales datosAlmacen = new DatosPersonales();
+            datosAlmacen.setUsuario(almacenGuardado);
+            datosAlmacen.setNombres("Carlos");
+            datosAlmacen.setApellidos("Operador Almacén");
+            datosAlmacen.setDni("71234567");
+            datosAlmacen.setSexo(masculino);
+            datosAlmacen.setEstadoCivil(soltero);
+
+            DatosPersonales datosAlmacenGuardados = datosPersonalesRepository.save(datosAlmacen);
+
+            CorreoElectronico correoAlmacen = new CorreoElectronico();
+            correoAlmacen.setDatosPersonales(datosAlmacenGuardados);
+            correoAlmacen.setCorreoElectronico("almacen@techstore.com");
+            correoAlmacen.setTipoCorreo("CORPORATIVO");
+            correoRepository.save(correoAlmacen);
+
+            Telefono telefonoAlmacen = new Telefono();
+            telefonoAlmacen.setDatosPersonales(datosAlmacenGuardados);
+            telefonoAlmacen.setNumeroTelefono("987654322");
+            telefonoAlmacen.setTipoTelefono("MOVIL");
+            telefonoRepository.save(telefonoAlmacen);
+
+            Direccion dirAlmacen = new Direccion();
+            dirAlmacen.setDatosPersonales(datosAlmacenGuardados);
+            dirAlmacen.setDistrito(sjl);
+            dirAlmacen.setCalleAvenida("Av. Las Flores 124");
+            dirAlmacen.setTipoDireccion("DOMICILIO");
+            dirAlmacen.setNumero("124");
+            dirAlmacen.setReferencia("Almacén Central TechStore");
+            direccionRepository.save(dirAlmacen);
+
+            System.out.println(">>> [Hibernate] Usuario 'almacen' inicializado exitosamente.");
+        }
+
+        // 6. Catálogo de Productos Inicial en Base de Datos
+        if (productoRepository.count() == 0) {
+            List<Producto> catalogo = List.of(
+                    crearP("Mouse Logitech G502 HERO", "Periféricos", 229.0, 20, 38, "/productos/mouse-g502.webp", "Mouse gamer alámbrico 25K DPI, 11 botones programables."),
+                    crearP("Audífonos Sony WH-1000XM4", "Audio", 1049.0, 12, 45, "/productos/sony-xm4.webp", "Audífonos bluetooth con noise cancelling, 30h de batería."),
+                    crearP("Teclado Redragon Fizz Pro K616 RGB", "Periféricos", 215.0, 5, 25, "/productos/teclado-redragon.webp", "Teclado mecánico inalámbrico, RGB, 87 teclas."),
+                    crearP("Laptop Lenovo IdeaPad Slim 3 Ryzen 7 / 16GB / 512GB", "Computadoras", 2599.0, 8, 12, "/productos/lenovo-slim3.webp", "15.6\" FHD, Ryzen 7 serie 5000, 16GB RAM, 512GB SSD."),
+                    crearP("Samsung Galaxy A55 5G 8GB / 128GB", "Smartphones", 1481.0, 15, 30, "/productos/galaxy-a55.webp", "Pantalla 6.6\" Super AMOLED 120Hz, cámara 50MP, batería 5000mAh."),
+                    crearP("Kit Cargador Xiaomi 65W USB-C", "Accesorios", 59.0, 50, 19, "/productos/cargador-65w.webp", "Carga rápida 65W con cable USB-C incluido."),
+                    crearP("Monitor Xiaomi G27Qi 27\" 2K 200Hz", "Computadoras", 729.0, 6, 15, "/productos/monitor-xiaomi.webp", "27\" QHD IPS, 200Hz, 1ms, HDR400, FreeSync Gaming."),
+                    crearP("Parlante JBL Flip 7 Bluetooth", "Audio", 329.0, 18, 28, "/productos/jbl-flip7.webp", "Bluetooth 5.4, resistente al agua IP67, 14h de reproducción.")
+            );
+            productoRepository.saveAll(catalogo);
+            System.out.println(">>> [Hibernate] 8 Productos de catálogo inicializados en PostgreSQL.");
+        }
+
+        // 7. Ventas / Pedidos Iniciales en Base de Datos
+        if (pedidoRepository.count() == 0 && adminGuardado != null) {
+            List<Producto> prods = productoRepository.findAll();
+            if (!prods.isEmpty()) {
+                Producto p1 = prods.get(0); // Mouse G502
+                Producto p2 = prods.size() > 1 ? prods.get(1) : p1; // Sony XM4
+                Producto p5 = prods.size() > 4 ? prods.get(4) : p1; // Galaxy A55
+
+                // Pedido 1
+                crearPedidoDemo(adminGuardado, "VTA-001", "María Torres", "73214569", "Boleta",
+                        LocalDateTime.now().minusHours(2), "Entregado", "envio", "tarjeta",
+                        List.of(new DetalleDemo(p1.getIdProducto(), p1.getNombre(), p1.getPrecio(), 2, p1.getImagen())));
+
+                // Pedido 2
+                crearPedidoDemo(adminGuardado, "VTA-002", "Tecnología Global S.A.C.", "20601234567", "Factura",
+                        LocalDateTime.now().minusDays(1), "Pagado", "envio", "transferencia",
+                        List.of(new DetalleDemo(p5.getIdProducto(), p5.getNombre(), p5.getPrecio(), 1, p5.getImagen())));
+
+                // Pedido 3
+                crearPedidoDemo(adminGuardado, "VTA-003", "José Ramírez", "45678912", "Boleta",
+                        LocalDateTime.now().minusDays(2), "Pendiente", "recojo", "yape",
+                        List.of(new DetalleDemo(p2.getIdProducto(), p2.getNombre(), p2.getPrecio(), 1, p2.getImagen())));
+
+                System.out.println(">>> [Hibernate] Ventas y Comprobantes de prueba inicializados en PostgreSQL.");
+            }
         }
     }
-}
 
+    private Producto crearP(String nombre, String cat, double precio, int stock, int vendidos, String img, String desc) {
+        Producto p = new Producto();
+        p.setNombre(nombre);
+        p.setCategoria(cat);
+        p.setPrecio(BigDecimal.valueOf(precio));
+        p.setStock(stock);
+        p.setVendidos(vendidos);
+        p.setImagen(img);
+        p.setDescripcion(desc);
+        p.setActivo(true);
+        return p;
+    }
+
+    private record DetalleDemo(Integer productoId, String nombre, BigDecimal precio, int cantidad, String imagen) {}
+
+    private void crearPedidoDemo(Usuario usuario, String numero, String cliente, String doc, String tipoComp,
+                                 LocalDateTime fecha, String estado, String tipoEntrega, String metodoPago,
+                                 List<DetalleDemo> items) {
+        Pedido p = new Pedido();
+        p.setNumero(numero);
+        p.setFecha(fecha);
+        p.setUsuario(usuario);
+        p.setEstado(estado);
+        p.setTipoEntrega(tipoEntrega);
+        p.setMetodoPago(metodoPago);
+        p.setCorreoContacto("cliente@techstore.com");
+        p.setCelularContacto("987654321");
+        p.setDireccionEnvio("Av. Las Flores 123");
+        p.setDistritoEnvio("San Juan de Lurigancho");
+
+        BigDecimal total = BigDecimal.ZERO;
+        List<DetallePedido> detalles = new ArrayList<>();
+        for (DetalleDemo item : items) {
+            DetallePedido d = new DetallePedido();
+            d.setPedido(p);
+            d.setProductoId(item.productoId());
+            d.setNombre(item.nombre());
+            d.setPrecioUnitario(item.precio());
+            d.setCantidad(item.cantidad());
+            d.setImagen(item.imagen());
+            detalles.add(d);
+            total = total.add(item.precio().multiply(BigDecimal.valueOf(item.cantidad())));
+        }
+        p.setTotal(total);
+        p.setDetalles(detalles);
+
+        ComprobantePedido comp = new ComprobantePedido();
+        comp.setPedido(p);
+        comp.setTipo(tipoComp);
+        comp.setDocumento(doc);
+        comp.setNombreRazonSocial(cliente);
+        comp.setDireccionFiscal("Av. Principal 456, Lima");
+        BigDecimal subtotal = total.divide(BigDecimal.valueOf(1.18), 2, java.math.RoundingMode.HALF_UP);
+        BigDecimal igv = total.subtract(subtotal);
+        comp.setSubtotal(subtotal);
+        comp.setIgv(igv);
+        comp.setTotal(total);
+        p.setComprobante(comp);
+
+        pedidoRepository.save(p);
+    }
+}
