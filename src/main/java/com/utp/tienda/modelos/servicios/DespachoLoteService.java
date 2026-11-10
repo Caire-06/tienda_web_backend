@@ -79,10 +79,13 @@ public class DespachoLoteService {
         List<String> procesados = new ArrayList<>();
         BigDecimal totalValorizado = BigDecimal.ZERO;
 
+        LocalDateTime ahora = LocalDateTime.now();
         for (String numero : dto.numerosPedidos()) {
             Pedido p = pedidoRepository.findByNumero(numero).orElse(null);
             if (p != null) {
                 p.setDespachoLote(guardado);
+                if (p.getFechaProcesando() == null) p.setFechaProcesando(ahora);
+                if (p.getFechaEnvio() == null) p.setFechaEnvio(ahora);
                 if ("recojo".equalsIgnoreCase(p.getTipoEntrega())) {
                     p.setEstado("Listo para recojo");
                 } else {
@@ -171,8 +174,12 @@ public class DespachoLoteService {
         List<String> numeros = new ArrayList<>();
         BigDecimal suma = BigDecimal.ZERO;
 
+        LocalDateTime ahora = LocalDateTime.now();
         if (pedidos != null) {
             for (Pedido p : pedidos) {
+                if (p.getFechaProcesando() == null) p.setFechaProcesando(ahora);
+                if (p.getFechaEnvio() == null) p.setFechaEnvio(ahora);
+                if (p.getFechaEntrega() == null) p.setFechaEntrega(ahora);
                 p.setEstado("Entregado");
                 pedidoRepository.save(p);
                 numeros.add(p.getNumero());
