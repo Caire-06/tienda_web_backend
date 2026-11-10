@@ -17,11 +17,14 @@ public class PerfilService {
     private final TelefonoRepository telefonos;
     private final DireccionRepository direcciones;
     private final DistritoRepository distritos;
+    private final SexoRepository sexos;
+    private final EstadoCivilRepository estadosCiviles;
     private final PasswordEncryptionStrategy encryptionStrategy;
 
     public PerfilService(UsuarioRepository usuarios, DatosPersonalesRepository datosRepo,
                          CorreoElectronicoRepository correos, TelefonoRepository telefonos,
                          DireccionRepository direcciones, DistritoRepository distritos,
+                         SexoRepository sexos, EstadoCivilRepository estadosCiviles,
                          @Qualifier("sha256Strategy") PasswordEncryptionStrategy encryptionStrategy) {
         this.usuarios = usuarios;
         this.datosRepo = datosRepo;
@@ -29,7 +32,24 @@ public class PerfilService {
         this.telefonos = telefonos;
         this.direcciones = direcciones;
         this.distritos = distritos;
+        this.sexos = sexos;
+        this.estadosCiviles = estadosCiviles;
         this.encryptionStrategy = encryptionStrategy;
+    }
+
+    private Distrito resolverDistrito(String nombreDistrito) {
+        if (nombreDistrito != null && !nombreDistrito.isBlank()) {
+            String buscado = nombreDistrito.trim();
+            Distrito exacto = distritos.findByNombreDistrito(buscado).orElse(null);
+            if (exacto != null) return exacto;
+            for (Distrito d : distritos.findAll()) {
+                if (d.getNombreDistrito() != null && d.getNombreDistrito().equalsIgnoreCase(buscado)) {
+                    return d;
+                }
+            }
+        }
+        return distritos.findByNombreDistrito("San Juan de Lurigancho")
+                .orElseGet(() -> distritos.findAll().stream().findFirst().orElse(null));
     }
 
     @Transactional(readOnly = true)
@@ -97,12 +117,118 @@ public class PerfilService {
                     direccion.setDistrito(distritos.findById(request.idDistrito())
                         .orElseThrow(() -> new IllegalArgumentException("Distrito no encontrado")));
                 }
-                if (direccion.getDistrito() == null)
-                    throw new IllegalArgumentException("Indique idDistrito para registrar una nueva dirección");
+                if (direccion.getDistrito() == null) {
+                    direccion.setDistrito(resolverDistrito(null));
+                }
+                if (direccion.getDistrito() == null) {
+                    throw new IllegalArgumentException("No hay distritos disponibles para registrar la dirección");
+                }
                 direcciones.save(direccion);
             }
         }
         return consultar(idUsuario);
+    }
+
+    /**
+     * Sincroniza en las tablas 3FN (DatosPersonales, Telefono, Direccion, CorreoElectronico)
+     * los datos ingresados o completados por el usuario durante la compra en el carrito.
+     */
+    @Transactional
+    public void sincronizarDesdeCompra(Usuario usuario, CrearPedidoDTO dto) {
+        if (usuario == null || dto == null) return;
+
+        DatosPersonales datos = datosRepo.findByUsuario_IdUsuario(usuario.getIdUsuario()).orElse(null);
+        if (datos == null) {
+            Sexo sexoDefault = sexos.findByDescripcion("No Especifica")
+                    .orElseGet(() -> sexos.save(new Sexo(null, "No Especifica")));
+            EstadoCivil estadoCivilDefault = estadosCiviles.findByDescripcion("Soltero(a)")
+                    .orElseGet(() -> estadosCiviles.save(new EstadoCivil(null, "Soltero(a)")));
+            datos = new DatosPersonales();
+            datos.setUsuario(usuario);
+            datos.setNombres(usuario.getNombreUsuario());
+            datos.setApellidos("");
+            datos.setDni("CLI" + String.format("%08d", usuario.getIdUsuario()));
+            datos.setSexo(sexoDefault);
+            datos.setEstadoCivil(estadoCivilDefault);
+            datos = datosRepo.save(datos);
+        }
+
+        boolean cambioDatos = false;
+        if (dto.comprobante() != null && "Boleta".equalsIgnoreCase(dto.comprobante().tipo())) {
+            String dniCompra = dto.comprobante().documento() != null ? dto.comprobante().documento().trim() : "";
+            String dniActual = datos.getDni() != null ? datos.getDni().trim() : "";
+            boolean actualEsSintetico = dniActual.isEmpty() || dniActual.startsWith("CLI") || dniActual.startsWith("DNI");
+            if (dniCompra.matches("\\d{8}") && actualEsSintetico) {
+                Integer idDatosActual = datos.getIdDatosPersonales();
+                boolean ocupado = datosRepo.findByDni(dniCompra)
+                        .filter(otro -> !otro.getIdDatosPersonales().equals(idDatosActual))
+                        .isPresent();
+                if (!ocupado) {
+                    datos.setDni(dniCompra);
+                    cambioDatos = true;
+                }
+            }
+            String nomCompra = dto.comprobante().nombreRazonSocial() != null ? dto.comprobante().nombreRazonSocial().trim() : "";
+            if (!nomCompra.isBlank() && (datos.getNombres() == null || datos.getNombres().isBlank() || datos.getNombres().equals(usuario.getNombreUsuario()))) {
+                String[] partes = nomCompra.split("\\s+", 2);
+                datos.setNombres(partes[0]);
+                if (partes.length > 1 && (datos.getApellidos() == null || datos.getApellidos().isBlank())) {
+                    datos.setApellidos(partes[1]);
+                }
+                cambioDatos = true;
+            }
+        }
+        if (cambioDatos) {
+            datosRepo.save(datos);
+        }
+
+        Integer idDatos = datos.getIdDatosPersonales();
+
+        if (dto.celularContacto() != null && !dto.celularContacto().isBlank()) {
+            String numero = dto.celularContacto().trim();
+            List<Telefono> listaTel = telefonos.findByDatosPersonales_IdDatosPersonales(idDatos);
+            Telefono tel = listaTel.isEmpty() ? new Telefono() : listaTel.get(0);
+            tel.setDatosPersonales(datos);
+            tel.setNumeroTelefono(numero.length() > 20 ? numero.substring(0, 20) : numero);
+            if (listaTel.isEmpty()) tel.setTipoTelefono("MOVIL");
+            telefonos.save(tel);
+        }
+
+        if (dto.direccionEnvio() != null && !dto.direccionEnvio().isBlank()
+                && !"recojo".equalsIgnoreCase(dto.tipoEntrega())) {
+            String calle = dto.direccionEnvio().trim();
+            List<Direccion> listaDir = direcciones.findByDatosPersonales_IdDatosPersonales(idDatos);
+            Direccion dir = listaDir.isEmpty() ? new Direccion() : listaDir.get(0);
+            Distrito distrito = resolverDistrito(dto.distritoEnvio());
+            if (distrito != null) {
+                dir.setDatosPersonales(datos);
+                dir.setDistrito(distrito);
+                dir.setCalleAvenida(calle.length() > 150 ? calle.substring(0, 150) : calle);
+                if (dto.referenciaEnvio() != null && !dto.referenciaEnvio().isBlank()) {
+                    String ref = dto.referenciaEnvio().trim();
+                    dir.setReferencia(ref.length() > 200 ? ref.substring(0, 200) : ref);
+                }
+                if (listaDir.isEmpty()) {
+                    dir.setTipoDireccion("DOMICILIO");
+                    dir.setNumero("S/N");
+                }
+                direcciones.save(dir);
+            }
+        }
+
+        if (dto.correoContacto() != null && !dto.correoContacto().isBlank()) {
+            List<CorreoElectronico> listaCorreo = correos.findByDatosPersonales_IdDatosPersonales(idDatos);
+            if (listaCorreo.isEmpty()) {
+                String mail = dto.correoContacto().trim().toLowerCase();
+                if (!correos.existsByCorreoElectronico(mail)) {
+                    CorreoElectronico nuevo = new CorreoElectronico();
+                    nuevo.setDatosPersonales(datos);
+                    nuevo.setCorreoElectronico(mail.length() > 100 ? mail.substring(0, 100) : mail);
+                    nuevo.setTipoCorreo("PERSONAL");
+                    correos.save(nuevo);
+                }
+            }
+        }
     }
 
     @Transactional

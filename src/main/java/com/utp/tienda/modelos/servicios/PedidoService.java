@@ -20,10 +20,12 @@ public class PedidoService {
 
     private final PedidoRepository pedidos;
     private final UsuarioRepository usuarios;
+    private final PerfilService perfilService;
 
-    public PedidoService(PedidoRepository pedidos, UsuarioRepository usuarios) {
+    public PedidoService(PedidoRepository pedidos, UsuarioRepository usuarios, PerfilService perfilService) {
         this.pedidos = pedidos;
         this.usuarios = usuarios;
+        this.perfilService = perfilService;
     }
 
     @Transactional
@@ -32,14 +34,35 @@ public class PedidoService {
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
 
         String tipoEntrega = valor(dto.tipoEntrega(), "delivery_propio");
+        String metodoPago = valor(dto.metodoPago(), "tarjeta").trim().toLowerCase();
+        String opPago = dto.codigoOperacionPago() != null ? dto.codigoOperacionPago().trim() : "";
+        String urlComprobantePago = dto.comprobantePagoUrl() != null ? dto.comprobantePagoUrl().trim() : "";
+
+        if ("yape".equals(metodoPago)) {
+            if (!opPago.matches("^\\d{6,8}(\\s*·\\s*Seg:\\s*\\d{3})?$")) {
+                throw new IllegalArgumentException(
+                        "Ingresa un número de operación válido de Yape/Plin (6 a 8 dígitos numéricos).");
+            }
+        }
+        if ("transferencia".equals(metodoPago) && opPago.isBlank() && urlComprobantePago.isBlank()) {
+            throw new IllegalArgumentException("Para pagar por transferencia adjunta la captura del abono o el número de operación.");
+        }
 
         Pedido pedido = new Pedido();
         pedido.setNumero(generarNumero());
         pedido.setFecha(LocalDateTime.now());
         pedido.setUsuario(usuario);
-        pedido.setEstado("Pendiente");
+        if ("transferencia".equals(metodoPago)) {
+            pedido.setEstado("Pendiente de pago");
+            pedido.setEstadoPago("Por verificar");
+        } else {
+            pedido.setEstado("Pendiente");
+            pedido.setEstadoPago("Pagado");
+        }
         pedido.setTipoEntrega(tipoEntrega);
-        pedido.setMetodoPago(dto.metodoPago());
+        pedido.setMetodoPago(metodoPago);
+        pedido.setCodigoOperacionPago(opPago.isBlank() ? null : opPago);
+        pedido.setComprobantePagoUrl(urlComprobantePago.isBlank() ? null : urlComprobantePago);
         pedido.setCorreoContacto(dto.correoContacto());
         pedido.setCelularContacto(dto.celularContacto());
         pedido.setDireccionEnvio(dto.direccionEnvio());
@@ -88,6 +111,7 @@ public class PedidoService {
         }
 
         Pedido guardado = pedidos.save(pedido);
+        perfilService.sincronizarDesdeCompra(usuario, dto);
         return mapear(guardado);
     }
 
@@ -122,6 +146,13 @@ public class PedidoService {
         Pedido p = pedidos.findByNumero(numero)
                 .orElseThrow(() -> new IllegalArgumentException("Pedido no encontrado: " + numero));
 
+        boolean pagoSinConfirmar = "Por verificar".equalsIgnoreCase(p.getEstadoPago())
+                || "Pendiente de pago".equalsIgnoreCase(p.getEstado());
+        if (pagoSinConfirmar && !"Cancelado".equalsIgnoreCase(nuevoEstado)) {
+            throw new IllegalArgumentException(
+                    "El pago por transferencia de este pedido aún está pendiente de confirmación por Administración.");
+        }
+
         LocalDateTime ahora = LocalDateTime.now();
         if ("Procesando".equalsIgnoreCase(nuevoEstado)) {
             if (p.getFechaProcesando() == null) p.setFechaProcesando(ahora);
@@ -135,6 +166,34 @@ public class PedidoService {
         }
 
         p.setEstado(nuevoEstado);
+        return mapear(pedidos.save(p));
+    }
+
+    @Transactional
+    public PedidoDTO confirmarPagoTransferencia(Integer adminUsuarioId, String numero, boolean aprobado) {
+        Usuario admin = usuarios.findById(adminUsuarioId)
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
+        String rol = admin.getRol() != null ? admin.getRol().getNombreRol() : "";
+        if (!"ADMINISTRADOR".equalsIgnoreCase(rol)) {
+            throw new SecurityException("Solo el Administrador puede confirmar o rechazar transferencias bancarias.");
+        }
+
+        Pedido p = pedidos.findByNumero(numero)
+                .orElseThrow(() -> new IllegalArgumentException("Pedido no encontrado: " + numero));
+
+        if (!"Por verificar".equalsIgnoreCase(p.getEstadoPago()) && !"Pendiente de pago".equalsIgnoreCase(p.getEstado())) {
+            throw new IllegalArgumentException("Este pedido no está pendiente de verificación de pago.");
+        }
+
+        p.setFechaConfirmacionPago(LocalDateTime.now());
+        p.setUsuarioConfirmoPago(admin.getNombreUsuario());
+        if (aprobado) {
+            p.setEstadoPago("Pagado");
+            p.setEstado("Pendiente");
+        } else {
+            p.setEstadoPago("Rechazado");
+            p.setEstado("Cancelado");
+        }
         return mapear(pedidos.save(p));
     }
 
@@ -161,11 +220,15 @@ public class PedidoService {
         String codigoLote = p.getDespachoLote() != null ? p.getDespachoLote().getCodigoLote() : null;
         String empresa = p.getDespachoLote() != null ? p.getDespachoLote().getEmpresaTransporte() : null;
         BigDecimal costoEnvio = p.getCostoEnvio() != null ? p.getCostoEnvio() : BigDecimal.ZERO;
+        String estadoPago = valor(p.getEstadoPago(), "Pagado");
+        String fechaConfPago = p.getFechaConfirmacionPago() != null ? p.getFechaConfirmacionPago().format(FECHA_ISO_FMT) : null;
 
         return new PedidoDTO(
                 p.getNumero(), fecha, cliente, p.getEstado(), p.getTipoEntrega(),
                 p.getMetodoPago(), costoEnvio, p.getTotal(), items, comp,
-                codigoLote, empresa, fechaProc, fechaEnv, fechaEnt
+                codigoLote, empresa, fechaProc, fechaEnv, fechaEnt,
+                estadoPago, p.getCodigoOperacionPago(), p.getComprobantePagoUrl(),
+                fechaConfPago, p.getUsuarioConfirmoPago()
         );
     }
 

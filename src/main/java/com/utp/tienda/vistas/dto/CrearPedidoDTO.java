@@ -18,5 +18,7 @@ public record CrearPedidoDTO(
         @Size(max = 20) String celularContacto,
         @Size(max = 200) String direccionEnvio,
         @Size(max = 200) String referenciaEnvio,
-        @Size(max = 100) String distritoEnvio
+        @Size(max = 100) String distritoEnvio,
+        @Size(max = 60) String codigoOperacionPago,
+        @Size(max = 500) String comprobantePagoUrl
 ) {}

@@ -1,0 +1,247 @@
+package com.utp.tienda.modelos.servicios;
+
+import com.utp.tienda.modelos.entidades.ComprobantePedido;
+import com.utp.tienda.modelos.entidades.DatosPersonales;
+import com.utp.tienda.modelos.repositorios.ComprobantePedidoRepository;
+import com.utp.tienda.modelos.repositorios.DatosPersonalesRepository;
+import com.utp.tienda.vistas.dto.ConsultaDniDTO;
+import com.utp.tienda.vistas.dto.ConsultaRucDTO;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.json.JsonParserFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+
+/**
+ * Patrón Estructural: Adapter
+ * Unifica consultas RENIEC (DNI) y SUNAT (RUC) entre registros propios en 3FN
+ * y proveedores externos configurables (apisperu.com / apis.net.pe) sin exponer tokens al navegador.
+ */
+@Service
+public class ConsultaFiscalService {
+
+    public static class TokenNoConfiguradoException extends RuntimeException {
+        public TokenNoConfiguradoException(String message) {
+            super(message);
+        }
+    }
+
+    public static class DocumentoNoEncontradoException extends RuntimeException {
+        public DocumentoNoEncontradoException(String message) {
+            super(message);
+        }
+    }
+
+    private final DatosPersonalesRepository datosPersonalesRepository;
+    private final ComprobantePedidoRepository comprobantePedidoRepository;
+    private final HttpClient httpClient;
+
+    @Value("${apisperu.token:}")
+    private String apisperuToken;
+
+    @Value("${apisnetpe.token:}")
+    private String apisnetpeToken;
+
+    public ConsultaFiscalService(DatosPersonalesRepository datosPersonalesRepository,
+                                 ComprobantePedidoRepository comprobantePedidoRepository) {
+        this.datosPersonalesRepository = datosPersonalesRepository;
+        this.comprobantePedidoRepository = comprobantePedidoRepository;
+        this.httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(5))
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public ConsultaDniDTO consultarDni(String dniRaw) {
+        String dni = dniRaw != null ? dniRaw.trim().replaceAll("\\D", "") : "";
+        if (!dni.matches("\\d{8}")) {
+            throw new IllegalArgumentException("El DNI debe contener exactamente 8 dígitos numéricos.");
+        }
+
+        // 1. Verificar coincidencia previa en PostgreSQL (3FN: datos_personales)
+        Optional<DatosPersonales> local = datosPersonalesRepository.findByDni(dni);
+        if (local.isPresent()) {
+            DatosPersonales dp = local.get();
+            String nombres = textoSeguro(dp.getNombres());
+            String apellidos = textoSeguro(dp.getApellidos());
+            String completo = (nombres + " " + apellidos).trim();
+            if (!completo.isBlank()) {
+                String[] partesAp = apellidos.split("\\s+", 2);
+                String pat = partesAp.length > 0 ? partesAp[0] : "";
+                String mat = partesAp.length > 1 ? partesAp[1] : "";
+                return new ConsultaDniDTO(dni, completo, nombres, pat, mat, "REGISTRO_LOCAL");
+            }
+        }
+
+        // 2. Consultar APIsPeru si tiene token configurado en el servidor
+        String tokenPeru = textoSeguro(apisperuToken);
+        if (!tokenPeru.isBlank()) {
+            Map<String, Object> json = ejecutarGet(
+                    "https://dniruc.apisperu.com/api/v1/dni/" + dni + "?token=" + tokenPeru,
+                    null,
+                    "DNI " + dni + " no encontrado en RENIEC."
+            );
+            String nombres = textoCampo(json, "nombres");
+            String pat = textoCampo(json, "apellidoPaterno");
+            String mat = textoCampo(json, "apellidoMaterno");
+            String completo = textoCampo(json, "nombreCompleto");
+            if (completo.isBlank()) {
+                completo = (nombres + " " + pat + " " + mat).trim();
+            }
+            if (!completo.isBlank()) {
+                return new ConsultaDniDTO(dni, completo, nombres, pat, mat, "RENIEC");
+            }
+        }
+
+        // 3. Consultar APIs.net.pe v2 si tiene token configurado en el servidor
+        String tokenNetPe = textoSeguro(apisnetpeToken);
+        if (!tokenNetPe.isBlank()) {
+            Map<String, Object> json = ejecutarGet(
+                    "https://api.apis.net.pe/v2/reniec/dni?numero=" + dni,
+                    "Bearer " + tokenNetPe,
+                    "DNI " + dni + " no encontrado en RENIEC."
+            );
+            String nombres = textoCampo(json, "nombres");
+            String pat = textoCampo(json, "apellidoPaterno");
+            String mat = textoCampo(json, "apellidoMaterno");
+            String completo = textoCampo(json, "nombreCompleto");
+            if (completo.isBlank()) {
+                completo = (nombres + " " + pat + " " + mat).trim();
+            }
+            if (!completo.isBlank()) {
+                return new ConsultaDniDTO(dni, completo, nombres, pat, mat, "RENIEC");
+            }
+        }
+
+        throw new TokenNoConfiguradoException(
+                "No hay token externo configurado en el servidor (APIPERU_TOKEN / APISNETPE_TOKEN) para consultar RENIEC.");
+    }
+
+    @Transactional(readOnly = true)
+    public ConsultaRucDTO consultarRuc(String rucRaw) {
+        String ruc = rucRaw != null ? rucRaw.trim().replaceAll("\\D", "") : "";
+        if (!ruc.matches("\\d{11}")) {
+            throw new IllegalArgumentException("El RUC debe contener exactamente 11 dígitos numéricos.");
+        }
+        if (!Set.of("10", "15", "17", "20").contains(ruc.substring(0, 2))) {
+            throw new IllegalArgumentException("El RUC debe iniciar con 10, 15, 17 o 20.");
+        }
+
+        // 1. Verificar si ya existe un comprobante previo emitido a ese RUC
+        Optional<ComprobantePedido> local = comprobantePedidoRepository.findFirstByDocumentoOrderByIdComprobanteDesc(ruc);
+        if (local.isPresent()) {
+            ComprobantePedido cp = local.get();
+            String razon = textoSeguro(cp.getNombreRazonSocial());
+            if (!razon.isBlank()) {
+                String dir = textoSeguro(cp.getDireccionFiscal());
+                return new ConsultaRucDTO(ruc, razon, "ACTIVO", "HABIDO",
+                        dir.isBlank() ? "LIMA - PERÚ" : dir, "REGISTRO_LOCAL");
+            }
+        }
+
+        // 2. Consultar APIsPeru si tiene token configurado en el servidor
+        String tokenPeru = textoSeguro(apisperuToken);
+        if (!tokenPeru.isBlank()) {
+            Map<String, Object> json = ejecutarGet(
+                    "https://dniruc.apisperu.com/api/v1/ruc/" + ruc + "?token=" + tokenPeru,
+                    null,
+                    "RUC " + ruc + " no encontrado en SUNAT."
+            );
+            String razon = textoCampo(json, "razonSocial");
+            if (!razon.isBlank()) {
+                String estado = textoCampo(json, "estado");
+                String condicion = textoCampo(json, "condicion");
+                String dir = textoCampo(json, "direccion");
+                return new ConsultaRucDTO(
+                        ruc,
+                        razon,
+                        estado.isBlank() ? "ACTIVO" : estado,
+                        condicion.isBlank() ? "HABIDO" : condicion,
+                        dir.isBlank() ? "LIMA - PERÚ" : dir,
+                        "SUNAT"
+                );
+            }
+        }
+
+        // 3. Consultar APIs.net.pe v2 si tiene token configurado en el servidor
+        String tokenNetPe = textoSeguro(apisnetpeToken);
+        if (!tokenNetPe.isBlank()) {
+            Map<String, Object> json = ejecutarGet(
+                    "https://api.apis.net.pe/v2/sunat/ruc?numero=" + ruc,
+                    "Bearer " + tokenNetPe,
+                    "RUC " + ruc + " no encontrado en SUNAT."
+            );
+            String razon = textoCampo(json, "razonSocial");
+            if (razon.isBlank()) razon = textoCampo(json, "nombre");
+            if (!razon.isBlank()) {
+                String estado = textoCampo(json, "estado");
+                String condicion = textoCampo(json, "condicion");
+                String dir = textoCampo(json, "direccion");
+                return new ConsultaRucDTO(
+                        ruc,
+                        razon,
+                        estado.isBlank() ? "ACTIVO" : estado,
+                        condicion.isBlank() ? "HABIDO" : condicion,
+                        dir.isBlank() ? "LIMA - PERÚ" : dir,
+                        "SUNAT"
+                );
+            }
+        }
+
+        throw new TokenNoConfiguradoException(
+                "No hay token externo configurado en el servidor (APIPERU_TOKEN / APISNETPE_TOKEN) para consultar SUNAT.");
+    }
+
+    private Map<String, Object> ejecutarGet(String url, String authorizationHeader, String msgNoEncontrado) {
+        try {
+            HttpRequest.Builder builder = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .timeout(Duration.ofSeconds(6))
+                    .header("Accept", "application/json")
+                    .GET();
+            if (authorizationHeader != null && !authorizationHeader.isBlank()) {
+                builder.header("Authorization", authorizationHeader);
+            }
+            HttpResponse<String> resp = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
+            int status = resp.statusCode();
+            if (status == 401 || status == 403) {
+                throw new IllegalStateException("El token externo para consultas RENIEC/SUNAT fue rechazado (" + status + ").");
+            }
+            if (status == 429) {
+                throw new IllegalStateException("Se alcanzó el límite de consultas del servicio externo.");
+            }
+            if (status == 404 || status == 422) {
+                throw new DocumentoNoEncontradoException(msgNoEncontrado);
+            }
+            if (status < 200 || status >= 300) {
+                throw new IllegalStateException("El servicio externo respondió con estado " + status + ".");
+            }
+            Map<String, Object> parsed = JsonParserFactory.getJsonParser().parseMap(resp.body());
+            if (Boolean.FALSE.equals(parsed.get("success"))) {
+                throw new DocumentoNoEncontradoException(msgNoEncontrado);
+            }
+            return parsed;
+        } catch (DocumentoNoEncontradoException | IllegalStateException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("No se pudo conectar con el servicio externo RENIEC/SUNAT.");
+        }
+    }
+
+    private static String textoSeguro(String valor) {
+        return valor != null ? valor.trim() : "";
+    }
+
+    private static String textoCampo(Map<String, Object> json, String clave) {
+        Object val = json.get(clave);
+        return val != null ? String.valueOf(val).trim() : "";
+    }
+}

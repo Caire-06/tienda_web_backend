@@ -46,6 +46,21 @@ public class Pedido {
     @Column(name = "metodo_pago", length = 30)
     private String metodoPago;
 
+    @Column(name = "estado_pago", length = 30)
+    private String estadoPago = "Pagado";
+
+    @Column(name = "codigo_operacion_pago", length = 60)
+    private String codigoOperacionPago;
+
+    @Column(name = "comprobante_pago_url", length = 500)
+    private String comprobantePagoUrl;
+
+    @Column(name = "fecha_confirmacion_pago")
+    private LocalDateTime fechaConfirmacionPago;
+
+    @Column(name = "usuario_confirmo_pago", length = 60)
+    private String usuarioConfirmoPago;
+
     @Column(name = "correo_contacto", length = 120)
     private String correoContacto;
 
@@ -135,4 +150,19 @@ public class Pedido {
 
     public LocalDateTime getFechaEntrega() { return fechaEntrega; }
     public void setFechaEntrega(LocalDateTime fechaEntrega) { this.fechaEntrega = fechaEntrega; }
+
+    public String getEstadoPago() { return estadoPago; }
+    public void setEstadoPago(String estadoPago) { this.estadoPago = estadoPago; }
+
+    public String getCodigoOperacionPago() { return codigoOperacionPago; }
+    public void setCodigoOperacionPago(String codigoOperacionPago) { this.codigoOperacionPago = codigoOperacionPago; }
+
+    public String getComprobantePagoUrl() { return comprobantePagoUrl; }
+    public void setComprobantePagoUrl(String comprobantePagoUrl) { this.comprobantePagoUrl = comprobantePagoUrl; }
+
+    public LocalDateTime getFechaConfirmacionPago() { return fechaConfirmacionPago; }
+    public void setFechaConfirmacionPago(LocalDateTime fechaConfirmacionPago) { this.fechaConfirmacionPago = fechaConfirmacionPago; }
+
+    public String getUsuarioConfirmoPago() { return usuarioConfirmoPago; }
+    public void setUsuarioConfirmoPago(String usuarioConfirmoPago) { this.usuarioConfirmoPago = usuarioConfirmoPago; }
 }
