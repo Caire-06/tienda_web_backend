@@ -155,6 +155,7 @@ public class DataInitializer implements CommandLineRunner {
                 admin.setPermiso(permisoTodo);
                 admin.setIntentosFallidos(0);
                 admin.setBloqueado(false);
+                admin.setCorreoVerificado(true);
 
                 adminGuardado = usuarioRepository.save(admin);
 
@@ -211,6 +212,7 @@ public class DataInitializer implements CommandLineRunner {
                 userAlmacen.setPermiso(permisoTodo);
                 userAlmacen.setIntentosFallidos(0);
                 userAlmacen.setBloqueado(false);
+                userAlmacen.setCorreoVerificado(true);
 
                 Usuario almacenGuardado = usuarioRepository.save(userAlmacen);
 
