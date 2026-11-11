@@ -9,7 +9,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/consultas")
-@CrossOrigin(origins = "*")
 public class ConsultaFiscalController {
 
     private final ConsultaFiscalService consultaFiscalService;

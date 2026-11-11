@@ -6,7 +6,6 @@ import com.utp.tienda.vistas.dto.KardexMovimientoDTO;
 import com.utp.tienda.vistas.dto.KardexResumenDTO;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,7 +16,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/kardex")
-@CrossOrigin(origins = "*")
 public class KardexController {
     private final KardexService kardex;
     private final SesionService sesiones;
