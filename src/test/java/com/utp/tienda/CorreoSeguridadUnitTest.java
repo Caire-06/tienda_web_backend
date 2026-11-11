@@ -1,5 +1,6 @@
 package com.utp.tienda;
 
+import com.utp.tienda.modelos.servicios.ControlTraficoService;
 import com.utp.tienda.modelos.servicios.SesionService;
 import com.utp.tienda.patrones.adapter.BrevoEmailAdapter;
 import com.utp.tienda.patrones.template.PlantillaCorreoBase;
@@ -61,6 +62,23 @@ class CorreoSeguridadUnitTest {
         assertNull(sesionService.identificar("Bearer " + tk1));
         assertNull(sesionService.identificar("Bearer " + tk2));
         assertEquals(100, sesionService.identificar("Bearer " + tkOtro));
+    }
+
+    @Test
+    void controlTraficoBloqueaExcesoDeTasaYCuotaDiariaBrevo() {
+        ControlTraficoService control = new ControlTraficoService(2, 2, 2);
+
+        assertTrue(control.intentarConsumir("auth-registro", "190.10.20.30", 2, 60).permitido());
+        assertTrue(control.intentarConsumir("auth-registro", "190.10.20.30", 2, 60).permitido());
+        ControlTraficoService.ResultadoLimite bloqueado =
+                control.intentarConsumir("auth-registro", "190.10.20.30", 2, 60);
+        assertFalse(bloqueado.permitido());
+        assertTrue(bloqueado.segundosEspera() >= 1);
+
+        control.consumirCuotaDiariaBrevo();
+        control.consumirCuotaDiariaBrevo();
+        assertThrows(ControlTraficoService.LimiteCuotaDiariaException.class,
+                control::consumirCuotaDiariaBrevo);
     }
 }
 
