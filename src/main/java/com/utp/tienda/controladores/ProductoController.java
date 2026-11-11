@@ -18,7 +18,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/productos")
-@CrossOrigin(origins = "*")
 public class ProductoController {
     private final ProductoService productos;
     private final CloudinaryService cloudinary;
