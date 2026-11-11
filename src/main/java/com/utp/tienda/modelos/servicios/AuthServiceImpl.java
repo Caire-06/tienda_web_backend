@@ -21,15 +21,18 @@ public class AuthServiceImpl implements IAuthService {
     private final UsuarioRepository usuarioRepository;
     private final CorreoElectronicoRepository correoRepository;
     private final PasswordEncryptionStrategy encryptionStrategy;
+    private final VerificacionCorreoService verificacionCorreoService;
 
     public AuthServiceImpl(UsuarioRepository usuarioRepository,
                            CorreoElectronicoRepository correoRepository,
                            SesionService sesionService,
-                           @Qualifier("sha256Strategy") PasswordEncryptionStrategy encryptionStrategy) {
+                           @Qualifier("sha256Strategy") PasswordEncryptionStrategy encryptionStrategy,
+                           VerificacionCorreoService verificacionCorreoService) {
         this.sesionService = sesionService;
         this.usuarioRepository = usuarioRepository;
         this.correoRepository = correoRepository;
         this.encryptionStrategy = encryptionStrategy;
+        this.verificacionCorreoService = verificacionCorreoService;
     }
 
     @Override
@@ -85,6 +88,25 @@ public class AuthServiceImpl implements IAuthService {
             usuario.setBloqueadoHasta(null);
             usuario.setUltimoAcceso(LocalDateTime.now());
             usuarioRepository.save(usuario);
+
+            if (!usuario.isCorreoVerificado()) {
+                VerificacionCorreoService.ResultadoDesafio desafio =
+                        verificacionCorreoService.emitirDesafio(usuario, VerificacionCorreoService.PROPOSITO_REGISTRO);
+                return LoginResponseDTO.verificacionCorreoRequerida(
+                        desafio.desafioToken(),
+                        desafio.correoEnmascarado(),
+                        "Tu correo electrónico aún no está verificado. Ingresa el código de 6 dígitos enviado a tu bandeja."
+                );
+            }
+
+            if (usuario.isTwoFactorActivo()) {
+                VerificacionCorreoService.ResultadoDesafio desafio =
+                        verificacionCorreoService.emitirDesafio(usuario, VerificacionCorreoService.PROPOSITO_LOGIN_2FA);
+                return LoginResponseDTO.twoFactorRequerido(
+                        desafio.desafioToken(),
+                        desafio.correoEnmascarado()
+                );
+            }
 
             String token = sesionService.crear(usuario.getIdUsuario());
             String rolNombre = usuario.getRol() != null ? usuario.getRol().getNombreRol() : "CLIENTE";

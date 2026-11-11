@@ -11,6 +11,10 @@ public class LoginResponseDTO {
     private String nombreUsuario;
     private Integer segundosEspera;
     private boolean requiereCambioPassword;
+    private boolean requiereVerificacionCorreo;
+    private boolean requiere2fa;
+    private String desafioToken;
+    private String correoDestino;
 
     public LoginResponseDTO() {}
 
@@ -49,6 +53,30 @@ public class LoginResponseDTO {
         return r;
     }
 
+    public static LoginResponseDTO verificacionCorreoRequerida(String desafioToken, String correoDestino, String mensaje) {
+        LoginResponseDTO r = new LoginResponseDTO();
+        r.exitoso = false;
+        r.mensaje = mensaje;
+        r.requiereVerificacionCorreo = true;
+        r.desafioToken = desafioToken;
+        r.correoDestino = correoDestino;
+        r.intentosRestantes = 3;
+        r.segundosEspera = 0;
+        return r;
+    }
+
+    public static LoginResponseDTO twoFactorRequerido(String desafioToken, String correoDestino) {
+        LoginResponseDTO r = new LoginResponseDTO();
+        r.exitoso = false;
+        r.mensaje = "Se envió un código de verificación en dos pasos a tu correo electrónico.";
+        r.requiere2fa = true;
+        r.desafioToken = desafioToken;
+        r.correoDestino = correoDestino;
+        r.intentosRestantes = 3;
+        r.segundosEspera = 0;
+        return r;
+    }
+
     public Integer getSegundosEspera() { return segundosEspera; }
 
     public boolean isExitoso() { return exitoso; }
@@ -59,5 +87,9 @@ public class LoginResponseDTO {
     public String getRol() { return rol; }
     public String getNombreUsuario() { return nombreUsuario; }
     public boolean isRequiereCambioPassword() { return requiereCambioPassword; }
+    public boolean isRequiereVerificacionCorreo() { return requiereVerificacionCorreo; }
+    public boolean isRequiere2fa() { return requiere2fa; }
+    public String getDesafioToken() { return desafioToken; }
+    public String getCorreoDestino() { return correoDestino; }
 }
 

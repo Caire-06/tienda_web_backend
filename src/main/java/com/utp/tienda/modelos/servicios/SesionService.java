@@ -24,6 +24,13 @@ public class SesionService {
         }
     }
 
+    /** Revoca todas las sesiones activas pertenecientes a un usuario (ej. tras restablecer contraseña). */
+    public void revocarPorUsuario(Integer usuarioId) {
+        if (usuarioId != null) {
+            sesiones.entrySet().removeIf(entry -> usuarioId.equals(entry.getValue().usuarioId()));
+        }
+    }
+
     public Integer identificar(String autorizacion) {
         if (autorizacion == null || !autorizacion.startsWith("Bearer ")) return null;
         String token = autorizacion.substring(7).trim();
