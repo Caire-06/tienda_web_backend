@@ -1,5 +1,7 @@
 package com.utp.tienda.patrones.adapter;
 
+import com.utp.tienda.modelos.servicios.ControlTraficoService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -23,14 +25,22 @@ public class BrevoEmailAdapter implements IServicioCorreo {
     private final String apiKey;
     private final String senderEmail;
     private final String senderName;
+    private final ControlTraficoService controlTraficoService;
 
+    public BrevoEmailAdapter(String apiKey, String senderEmail, String senderName) {
+        this(apiKey, senderEmail, senderName, null);
+    }
+
+    @Autowired
     public BrevoEmailAdapter(
             @Value("${brevo.api-key:}") String apiKey,
             @Value("${brevo.sender-email:}") String senderEmail,
-            @Value("${brevo.sender-name:TechStore}") String senderName) {
+            @Value("${brevo.sender-name:TechStore}") String senderName,
+            ControlTraficoService controlTraficoService) {
         this.apiKey = apiKey != null ? apiKey.trim() : "";
         this.senderEmail = senderEmail != null ? senderEmail.trim() : "";
         this.senderName = (senderName != null && !senderName.isBlank()) ? senderName.trim() : "TechStore";
+        this.controlTraficoService = controlTraficoService;
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(10))
                 .build();
@@ -49,6 +59,9 @@ public class BrevoEmailAdapter implements IServicioCorreo {
         }
         if (destinatarioEmail == null || destinatarioEmail.isBlank()) {
             throw new IllegalArgumentException("El correo del destinatario es obligatorio.");
+        }
+        if (controlTraficoService != null) {
+            controlTraficoService.consumirCuotaDiariaBrevo();
         }
 
         String nombreDestino = (destinatarioNombre != null && !destinatarioNombre.isBlank())

@@ -16,14 +16,16 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
 /**
  * Patrón Estructural: Adapter
- * Unifica consultas RENIEC (DNI) y SUNAT (RUC) entre registros propios en 3FN
- * y proveedores externos configurables (apisperu.com / apis.net.pe) sin exponer tokens al navegador.
+ * Unifica consultas RENIEC (DNI) y SUNAT (RUC) entre registros propios en 3FN,
+ * caché temporal en memoria (24h) y proveedores externos protegidos por cuota diaria.
  */
 @Service
 public class ConsultaFiscalService {
@@ -40,9 +42,17 @@ public class ConsultaFiscalService {
         }
     }
 
+    private record EntradaCache<T>(T valor, long expiraEnMs) {}
+
+    private static final long TTL_CACHE_MS = Duration.ofHours(24).toMillis();
+    private static final int MAX_CACHE_DOCUMENTOS = 1000;
+
     private final DatosPersonalesRepository datosPersonalesRepository;
     private final ComprobantePedidoRepository comprobantePedidoRepository;
+    private final ControlTraficoService controlTraficoService;
     private final HttpClient httpClient;
+    private final Map<String, EntradaCache<ConsultaDniDTO>> cacheDni = crearMapaLru();
+    private final Map<String, EntradaCache<ConsultaRucDTO>> cacheRuc = crearMapaLru();
 
     @Value("${apisperu.token:}")
     private String apisperuToken;
@@ -51,12 +61,37 @@ public class ConsultaFiscalService {
     private String apisnetpeToken;
 
     public ConsultaFiscalService(DatosPersonalesRepository datosPersonalesRepository,
-                                 ComprobantePedidoRepository comprobantePedidoRepository) {
+                                 ComprobantePedidoRepository comprobantePedidoRepository,
+                                 ControlTraficoService controlTraficoService) {
         this.datosPersonalesRepository = datosPersonalesRepository;
         this.comprobantePedidoRepository = comprobantePedidoRepository;
+        this.controlTraficoService = controlTraficoService;
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(5))
                 .build();
+    }
+
+    private static <T> Map<String, EntradaCache<T>> crearMapaLru() {
+        return Collections.synchronizedMap(new LinkedHashMap<>(64, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<String, EntradaCache<T>> eldest) {
+                return size() > MAX_CACHE_DOCUMENTOS;
+            }
+        });
+    }
+
+    private <T> Optional<T> leerCache(Map<String, EntradaCache<T>> cache, String clave) {
+        EntradaCache<T> entrada = cache.get(clave);
+        if (entrada == null) return Optional.empty();
+        if (System.currentTimeMillis() > entrada.expiraEnMs()) {
+            cache.remove(clave);
+            return Optional.empty();
+        }
+        return Optional.of(entrada.valor());
+    }
+
+    private <T> void guardarCache(Map<String, EntradaCache<T>> cache, String clave, T valor) {
+        cache.put(clave, new EntradaCache<>(valor, System.currentTimeMillis() + TTL_CACHE_MS));
     }
 
     @Transactional(readOnly = true)
@@ -81,8 +116,23 @@ public class ConsultaFiscalService {
             }
         }
 
-        // 2. Consultar APIsPeru si tiene token configurado en el servidor
+        // 2. Verificar caché temporal de 24h para evitar llamadas repetidas
+        Optional<ConsultaDniDTO> enCache = leerCache(cacheDni, dni);
+        if (enCache.isPresent()) {
+            return enCache.get();
+        }
+
         String tokenPeru = textoSeguro(apisperuToken);
+        String tokenNetPe = textoSeguro(apisnetpeToken);
+        if (tokenPeru.isBlank() && tokenNetPe.isBlank()) {
+            throw new TokenNoConfiguradoException(
+                    "No hay token externo configurado en el servidor (APIPERU_TOKEN / APISNETPE_TOKEN) para consultar RENIEC.");
+        }
+
+        // 3. Aplicar tope diario preventivo solo antes de consumir API externa
+        controlTraficoService.consumirCuotaDiariaConsultasFiscales();
+
+        // 4. Consultar APIsPeru si tiene token configurado en el servidor
         if (!tokenPeru.isBlank()) {
             Map<String, Object> json = ejecutarGet(
                     "https://dniruc.apisperu.com/api/v1/dni/" + dni + "?token=" + tokenPeru,
@@ -97,12 +147,13 @@ public class ConsultaFiscalService {
                 completo = (nombres + " " + pat + " " + mat).trim();
             }
             if (!completo.isBlank()) {
-                return new ConsultaDniDTO(dni, completo, nombres, pat, mat, "RENIEC");
+                ConsultaDniDTO resultado = new ConsultaDniDTO(dni, completo, nombres, pat, mat, "RENIEC");
+                guardarCache(cacheDni, dni, resultado);
+                return resultado;
             }
         }
 
-        // 3. Consultar APIs.net.pe v2 si tiene token configurado en el servidor
-        String tokenNetPe = textoSeguro(apisnetpeToken);
+        // 5. Consultar APIs.net.pe v2 si tiene token configurado en el servidor
         if (!tokenNetPe.isBlank()) {
             Map<String, Object> json = ejecutarGet(
                     "https://api.apis.net.pe/v2/reniec/dni?numero=" + dni,
@@ -117,12 +168,13 @@ public class ConsultaFiscalService {
                 completo = (nombres + " " + pat + " " + mat).trim();
             }
             if (!completo.isBlank()) {
-                return new ConsultaDniDTO(dni, completo, nombres, pat, mat, "RENIEC");
+                ConsultaDniDTO resultado = new ConsultaDniDTO(dni, completo, nombres, pat, mat, "RENIEC");
+                guardarCache(cacheDni, dni, resultado);
+                return resultado;
             }
         }
 
-        throw new TokenNoConfiguradoException(
-                "No hay token externo configurado en el servidor (APIPERU_TOKEN / APISNETPE_TOKEN) para consultar RENIEC.");
+        throw new DocumentoNoEncontradoException("DNI " + dni + " no encontrado en RENIEC.");
     }
 
     @Transactional(readOnly = true)
@@ -147,8 +199,23 @@ public class ConsultaFiscalService {
             }
         }
 
-        // 2. Consultar APIsPeru si tiene token configurado en el servidor
+        // 2. Verificar caché temporal de 24h para evitar llamadas repetidas
+        Optional<ConsultaRucDTO> enCache = leerCache(cacheRuc, ruc);
+        if (enCache.isPresent()) {
+            return enCache.get();
+        }
+
         String tokenPeru = textoSeguro(apisperuToken);
+        String tokenNetPe = textoSeguro(apisnetpeToken);
+        if (tokenPeru.isBlank() && tokenNetPe.isBlank()) {
+            throw new TokenNoConfiguradoException(
+                    "No hay token externo configurado en el servidor (APIPERU_TOKEN / APISNETPE_TOKEN) para consultar SUNAT.");
+        }
+
+        // 3. Aplicar tope diario preventivo solo antes de consumir API externa
+        controlTraficoService.consumirCuotaDiariaConsultasFiscales();
+
+        // 4. Consultar APIsPeru si tiene token configurado en el servidor
         if (!tokenPeru.isBlank()) {
             Map<String, Object> json = ejecutarGet(
                     "https://dniruc.apisperu.com/api/v1/ruc/" + ruc + "?token=" + tokenPeru,
@@ -157,12 +224,13 @@ public class ConsultaFiscalService {
             );
             String razon = textoCampo(json, "razonSocial");
             if (!razon.isBlank()) {
-                return construirRucDto(ruc, razon, json);
+                ConsultaRucDTO resultado = construirRucDto(ruc, razon, json);
+                guardarCache(cacheRuc, ruc, resultado);
+                return resultado;
             }
         }
 
-        // 3. Consultar APIs.net.pe v2 si tiene token configurado en el servidor
-        String tokenNetPe = textoSeguro(apisnetpeToken);
+        // 5. Consultar APIs.net.pe v2 si tiene token configurado en el servidor
         if (!tokenNetPe.isBlank()) {
             Map<String, Object> json = ejecutarGet(
                     "https://api.apis.net.pe/v2/sunat/ruc?numero=" + ruc,
@@ -172,12 +240,13 @@ public class ConsultaFiscalService {
             String razon = textoCampo(json, "razonSocial");
             if (razon.isBlank()) razon = textoCampo(json, "nombre");
             if (!razon.isBlank()) {
-                return construirRucDto(ruc, razon, json);
+                ConsultaRucDTO resultado = construirRucDto(ruc, razon, json);
+                guardarCache(cacheRuc, ruc, resultado);
+                return resultado;
             }
         }
 
-        throw new TokenNoConfiguradoException(
-                "No hay token externo configurado en el servidor (APIPERU_TOKEN / APISNETPE_TOKEN) para consultar SUNAT.");
+        throw new DocumentoNoEncontradoException("RUC " + ruc + " no encontrado en SUNAT.");
     }
 
     private Map<String, Object> ejecutarGet(String url, String authorizationHeader, String msgNoEncontrado) {
