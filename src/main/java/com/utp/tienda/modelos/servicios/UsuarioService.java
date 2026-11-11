@@ -34,6 +34,7 @@ public class UsuarioService {
     private final UsuarioFactory usuarioFactory;
     private final UsuarioCaretaker caretaker;
     private final PasswordEncryptionStrategy encryptionStrategy;
+    private final VerificacionCorreoService verificacionCorreoService;
 
     public UsuarioService(UsuarioRepository usuarioRepository,
                           RolRepository rolRepository,
@@ -46,7 +47,8 @@ public class UsuarioService {
                           EstadoCivilRepository estadoCivilRepository,
                           UsuarioFactory usuarioFactory,
                           UsuarioCaretaker caretaker,
-                          @Qualifier("sha256Strategy") PasswordEncryptionStrategy encryptionStrategy) {
+                          @Qualifier("sha256Strategy") PasswordEncryptionStrategy encryptionStrategy,
+                          VerificacionCorreoService verificacionCorreoService) {
         this.usuarioRepository = usuarioRepository;
         this.rolRepository = rolRepository;
         this.datosPersonalesRepository = datosPersonalesRepository;
@@ -59,6 +61,7 @@ public class UsuarioService {
         this.usuarioFactory = usuarioFactory;
         this.caretaker = caretaker;
         this.encryptionStrategy = encryptionStrategy;
+        this.verificacionCorreoService = verificacionCorreoService;
     }
 
     public List<Usuario> listarTodos() {
@@ -105,6 +108,8 @@ public class UsuarioService {
 
         // 4. Instanciar Usuario usando el patrón Factory Method
         Usuario nuevoUsuario = usuarioFactory.crearUsuario(correoLimpio, hash, rolCliente);
+        nuevoUsuario.setCorreoVerificado(false);
+        nuevoUsuario.setTwoFactorActivo(false);
         Usuario usuarioGuardado = usuarioRepository.save(nuevoUsuario);
 
         // 5. Crear Datos Personales en 3FN
@@ -342,6 +347,8 @@ public class UsuarioService {
         String hash = encryptionStrategy.encriptar(passwordTemporal);
         Usuario nuevo = usuarioFactory.crearUsuario(username, hash, rol);
         nuevo.setRequiereCambioPassword(true);
+        nuevo.setCorreoVerificado(true);
+        nuevo.setTwoFactorActivo(false);
         nuevo.setUsuarioRegistro("ADMIN");
         Usuario guardado = usuarioRepository.save(nuevo);
 
@@ -374,6 +381,9 @@ public class UsuarioService {
             tel.setTipoTelefono(normalizarTipoContacto(dto.tipoTelefono(), "MOVIL"));
             telefonoRepository.save(tel);
         }
+
+        verificacionCorreoService.enviarBienvenidaAdminSiDisponible(
+                guardado, dto.correo(), (nombres + " " + apellidos).trim(), passwordTemporal);
 
         return new UsuarioCreadoAdminDTO(mapearUsuarioDTO(guardado), passwordTemporal);
     }
