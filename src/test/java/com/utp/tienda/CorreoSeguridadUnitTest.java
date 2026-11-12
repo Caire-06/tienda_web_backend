@@ -1,5 +1,7 @@
 package com.utp.tienda;
 
+import com.utp.tienda.controladores.filtros.AutorizacionDecoratorFilter;
+import com.utp.tienda.controladores.filtros.AutorizacionDecoratorFilter.PoliticaRuta;
 import com.utp.tienda.modelos.servicios.ControlTraficoService;
 import com.utp.tienda.modelos.servicios.SesionService;
 import com.utp.tienda.patrones.adapter.BrevoEmailAdapter;
@@ -79,6 +81,37 @@ class CorreoSeguridadUnitTest {
         control.consumirCuotaDiariaBrevo();
         assertThrows(ControlTraficoService.LimiteCuotaDiariaException.class,
                 control::consumirCuotaDiariaBrevo);
+    }
+
+    @Test
+    void autorizacionRbacProtegeRutasAdminYAlmacenPorDefecto() {
+        assertEquals(PoliticaRuta.PUBLICO, AutorizacionDecoratorFilter.resolverPolitica("GET", "/api/productos"));
+        assertEquals(PoliticaRuta.PUBLICO, AutorizacionDecoratorFilter.resolverPolitica("GET", "/api/productos/15"));
+        assertEquals(PoliticaRuta.PUBLICO, AutorizacionDecoratorFilter.resolverPolitica("GET", "/api/consultas/dni/12345678"));
+        assertEquals(PoliticaRuta.PUBLICO, AutorizacionDecoratorFilter.resolverPolitica("POST", "/api/auth/login"));
+
+        assertEquals(PoliticaRuta.SOLO_ADMIN, AutorizacionDecoratorFilter.resolverPolitica("GET", "/api/usuarios"));
+        assertEquals(PoliticaRuta.SOLO_ADMIN, AutorizacionDecoratorFilter.resolverPolitica("POST", "/api/usuarios"));
+        assertEquals(PoliticaRuta.SOLO_ADMIN, AutorizacionDecoratorFilter.resolverPolitica("GET", "/api/admin/dashboard/kpis"));
+        assertEquals(PoliticaRuta.SOLO_ADMIN, AutorizacionDecoratorFilter.resolverPolitica("GET", "/api/admin/reportes/ventas"));
+        assertEquals(PoliticaRuta.SOLO_ADMIN, AutorizacionDecoratorFilter.resolverPolitica("PUT", "/api/pedidos/PED-001/pago"));
+
+        assertEquals(PoliticaRuta.ADMIN_O_ALMACEN, AutorizacionDecoratorFilter.resolverPolitica("GET", "/api/despachos"));
+        assertEquals(PoliticaRuta.ADMIN_O_ALMACEN, AutorizacionDecoratorFilter.resolverPolitica("PATCH", "/api/despachos/5/completar"));
+        assertEquals(PoliticaRuta.ADMIN_O_ALMACEN, AutorizacionDecoratorFilter.resolverPolitica("GET", "/api/pedidos"));
+        assertEquals(PoliticaRuta.ADMIN_O_ALMACEN, AutorizacionDecoratorFilter.resolverPolitica("DELETE", "/api/productos/1"));
+        assertEquals(PoliticaRuta.ADMIN_O_ALMACEN, AutorizacionDecoratorFilter.resolverPolitica("POST", "/api/entradas"));
+        assertEquals(PoliticaRuta.ADMIN_O_ALMACEN, AutorizacionDecoratorFilter.resolverPolitica("GET", "/api/kardex/movimientos"));
+
+        assertEquals(PoliticaRuta.AUTENTICADO, AutorizacionDecoratorFilter.resolverPolitica("GET", "/api/perfil"));
+        assertEquals(PoliticaRuta.AUTENTICADO, AutorizacionDecoratorFilter.resolverPolitica("POST", "/api/pedidos"));
+        assertEquals(PoliticaRuta.BLOQUEADO, AutorizacionDecoratorFilter.resolverPolitica("GET", "/api/admin/../productos"));
+
+        assertFalse(AutorizacionDecoratorFilter.rolPermitido(PoliticaRuta.SOLO_ADMIN, "CLIENTE"));
+        assertFalse(AutorizacionDecoratorFilter.rolPermitido(PoliticaRuta.SOLO_ADMIN, "ALMACEN"));
+        assertTrue(AutorizacionDecoratorFilter.rolPermitido(PoliticaRuta.SOLO_ADMIN, "ADMINISTRADOR"));
+        assertTrue(AutorizacionDecoratorFilter.rolPermitido(PoliticaRuta.ADMIN_O_ALMACEN, "ALMACEN"));
+        assertFalse(AutorizacionDecoratorFilter.rolPermitido(PoliticaRuta.ADMIN_O_ALMACEN, "CLIENTE"));
     }
 }
 
