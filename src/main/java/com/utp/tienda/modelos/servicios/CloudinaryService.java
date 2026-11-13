@@ -1,6 +1,7 @@
 package com.utp.tienda.modelos.servicios;
 
 import com.cloudinary.Cloudinary;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -16,6 +17,8 @@ import java.util.Map;
 @Service
 public class CloudinaryService {
 
+    private final ControlTraficoService controlTraficoService;
+
     @Value("${cloudinary.cloud-name:}")
     private String cloudName;
 
@@ -27,6 +30,15 @@ public class CloudinaryService {
 
     @Value("${cloudinary.url:}")
     private String cloudinaryUrl;
+
+    public CloudinaryService() {
+        this(null);
+    }
+
+    @Autowired
+    public CloudinaryService(ControlTraficoService controlTraficoService) {
+        this.controlTraficoService = controlTraficoService;
+    }
 
     private Cloudinary crearCloudinary() {
         String name = cloudName != null ? cloudName.trim() : "";
@@ -59,6 +71,9 @@ public class CloudinaryService {
             throw new IllegalArgumentException("Selecciona un archivo de imagen válido antes de subir.");
         }
         try {
+            if (controlTraficoService != null) {
+                controlTraficoService.consumirCuotaDiariaCloudinary();
+            }
             Cloudinary cloudinary = crearCloudinary();
             String destino = (carpeta != null && !carpeta.isBlank()) ? carpeta.trim() : "techstore/productos";
             Map<String, Object> opciones = new HashMap<>();
@@ -76,9 +91,14 @@ public class CloudinaryService {
     /** Sube un archivo (nombre + bytes) a Cloudinary (carpeta techstore/productos) y devuelve { url, publicId }. */
     public Map<String, Object> subir(String nombreArchivo, byte[] contenido) {
         try {
+            if (controlTraficoService != null) {
+                controlTraficoService.consumirCuotaDiariaCloudinary();
+            }
             Cloudinary cloudinary = crearCloudinary();
             String base64 = Base64.getEncoder().encodeToString(contenido);
             return cloudinary.uploader().upload("data:image/webp;base64," + base64, Map.of("folder", "techstore/productos", "original_filename", nombreArchivo));
+        } catch (IllegalStateException e) {
+            throw e;
         } catch (Exception e) {
             throw new RuntimeException("No se pudo subir la imagen a Cloudinary: " + e.getMessage(), e);
         }

@@ -1,5 +1,8 @@
 package com.utp.tienda;
 
+import com.utp.tienda.controladores.filtros.AutorizacionDecoratorFilter;
+import com.utp.tienda.controladores.filtros.AutorizacionDecoratorFilter.PoliticaRuta;
+import com.utp.tienda.modelos.servicios.ControlTraficoService;
 import com.utp.tienda.modelos.servicios.SesionService;
 import com.utp.tienda.patrones.adapter.BrevoEmailAdapter;
 import com.utp.tienda.patrones.template.PlantillaCorreoBase;
@@ -61,6 +64,54 @@ class CorreoSeguridadUnitTest {
         assertNull(sesionService.identificar("Bearer " + tk1));
         assertNull(sesionService.identificar("Bearer " + tk2));
         assertEquals(100, sesionService.identificar("Bearer " + tkOtro));
+    }
+
+    @Test
+    void controlTraficoBloqueaExcesoDeTasaYCuotaDiariaBrevo() {
+        ControlTraficoService control = new ControlTraficoService(2, 2, 2);
+
+        assertTrue(control.intentarConsumir("auth-registro", "190.10.20.30", 2, 60).permitido());
+        assertTrue(control.intentarConsumir("auth-registro", "190.10.20.30", 2, 60).permitido());
+        ControlTraficoService.ResultadoLimite bloqueado =
+                control.intentarConsumir("auth-registro", "190.10.20.30", 2, 60);
+        assertFalse(bloqueado.permitido());
+        assertTrue(bloqueado.segundosEspera() >= 1);
+
+        control.consumirCuotaDiariaBrevo();
+        control.consumirCuotaDiariaBrevo();
+        assertThrows(ControlTraficoService.LimiteCuotaDiariaException.class,
+                control::consumirCuotaDiariaBrevo);
+    }
+
+    @Test
+    void autorizacionRbacProtegeRutasAdminYAlmacenPorDefecto() {
+        assertEquals(PoliticaRuta.PUBLICO, AutorizacionDecoratorFilter.resolverPolitica("GET", "/api/productos"));
+        assertEquals(PoliticaRuta.PUBLICO, AutorizacionDecoratorFilter.resolverPolitica("GET", "/api/productos/15"));
+        assertEquals(PoliticaRuta.PUBLICO, AutorizacionDecoratorFilter.resolverPolitica("GET", "/api/consultas/dni/12345678"));
+        assertEquals(PoliticaRuta.PUBLICO, AutorizacionDecoratorFilter.resolverPolitica("POST", "/api/auth/login"));
+
+        assertEquals(PoliticaRuta.SOLO_ADMIN, AutorizacionDecoratorFilter.resolverPolitica("GET", "/api/usuarios"));
+        assertEquals(PoliticaRuta.SOLO_ADMIN, AutorizacionDecoratorFilter.resolverPolitica("POST", "/api/usuarios"));
+        assertEquals(PoliticaRuta.SOLO_ADMIN, AutorizacionDecoratorFilter.resolverPolitica("GET", "/api/admin/dashboard/kpis"));
+        assertEquals(PoliticaRuta.SOLO_ADMIN, AutorizacionDecoratorFilter.resolverPolitica("GET", "/api/admin/reportes/ventas"));
+        assertEquals(PoliticaRuta.SOLO_ADMIN, AutorizacionDecoratorFilter.resolverPolitica("PUT", "/api/pedidos/PED-001/pago"));
+
+        assertEquals(PoliticaRuta.ADMIN_O_ALMACEN, AutorizacionDecoratorFilter.resolverPolitica("GET", "/api/despachos"));
+        assertEquals(PoliticaRuta.ADMIN_O_ALMACEN, AutorizacionDecoratorFilter.resolverPolitica("PATCH", "/api/despachos/5/completar"));
+        assertEquals(PoliticaRuta.ADMIN_O_ALMACEN, AutorizacionDecoratorFilter.resolverPolitica("GET", "/api/pedidos"));
+        assertEquals(PoliticaRuta.ADMIN_O_ALMACEN, AutorizacionDecoratorFilter.resolverPolitica("DELETE", "/api/productos/1"));
+        assertEquals(PoliticaRuta.ADMIN_O_ALMACEN, AutorizacionDecoratorFilter.resolverPolitica("POST", "/api/entradas"));
+        assertEquals(PoliticaRuta.ADMIN_O_ALMACEN, AutorizacionDecoratorFilter.resolverPolitica("GET", "/api/kardex/movimientos"));
+
+        assertEquals(PoliticaRuta.AUTENTICADO, AutorizacionDecoratorFilter.resolverPolitica("GET", "/api/perfil"));
+        assertEquals(PoliticaRuta.AUTENTICADO, AutorizacionDecoratorFilter.resolverPolitica("POST", "/api/pedidos"));
+        assertEquals(PoliticaRuta.BLOQUEADO, AutorizacionDecoratorFilter.resolverPolitica("GET", "/api/admin/../productos"));
+
+        assertFalse(AutorizacionDecoratorFilter.rolPermitido(PoliticaRuta.SOLO_ADMIN, "CLIENTE"));
+        assertFalse(AutorizacionDecoratorFilter.rolPermitido(PoliticaRuta.SOLO_ADMIN, "ALMACEN"));
+        assertTrue(AutorizacionDecoratorFilter.rolPermitido(PoliticaRuta.SOLO_ADMIN, "ADMINISTRADOR"));
+        assertTrue(AutorizacionDecoratorFilter.rolPermitido(PoliticaRuta.ADMIN_O_ALMACEN, "ALMACEN"));
+        assertFalse(AutorizacionDecoratorFilter.rolPermitido(PoliticaRuta.ADMIN_O_ALMACEN, "CLIENTE"));
     }
 }
 
