@@ -2,17 +2,21 @@ package com.utp.tienda.modelos.servicios;
 
 import com.utp.tienda.modelos.entidades.*;
 import com.utp.tienda.modelos.repositorios.PedidoRepository;
+import com.utp.tienda.modelos.repositorios.ProductoRepository;
 import com.utp.tienda.modelos.repositorios.UsuarioRepository;
 import com.utp.tienda.patrones.strategy.EstrategiaCostoEnvio;
 import com.utp.tienda.vistas.dto.*;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class PedidoService {
@@ -21,11 +25,13 @@ public class PedidoService {
     private final PedidoRepository pedidos;
     private final UsuarioRepository usuarios;
     private final PerfilService perfilService;
+    private final ProductoRepository productos;
 
-    public PedidoService(PedidoRepository pedidos, UsuarioRepository usuarios, PerfilService perfilService) {
+    public PedidoService(PedidoRepository pedidos, UsuarioRepository usuarios, PerfilService perfilService, ProductoRepository productos) {
         this.pedidos = pedidos;
         this.usuarios = usuarios;
         this.perfilService = perfilService;
+        this.productos = productos;
     }
 
     @Transactional
@@ -35,6 +41,24 @@ public class PedidoService {
 
         String tipoEntrega = valor(dto.tipoEntrega(), "delivery_propio");
         String metodoPago = valor(dto.metodoPago(), "tarjeta").trim().toLowerCase();
+
+        if (!Set.of("tarjeta", "yape", "transferencia").contains(metodoPago)) {
+            throw new IllegalArgumentException("Método de pago no válido: " + dto.metodoPago());
+        }
+        if (!Set.of("delivery_propio", "agencia_destino", "recojo").contains(tipoEntrega)) {
+            throw new IllegalArgumentException("Modalidad de entrega no válida: " + dto.tipoEntrega());
+        }
+        if ("delivery_propio".equalsIgnoreCase(tipoEntrega)) {
+            if (dto.correoContacto() == null || dto.correoContacto().isBlank()) {
+                throw new IllegalArgumentException("Para la modalidad de delivery propio debes ingresar el correo electrónico de contacto.");
+            }
+            if (dto.celularContacto() == null || dto.celularContacto().isBlank()) {
+                throw new IllegalArgumentException("Para la modalidad de delivery propio debes ingresar el teléfono celular de contacto.");
+            }
+            if (dto.direccionEnvio() == null || dto.direccionEnvio().isBlank()) {
+                throw new IllegalArgumentException("Para la modalidad de delivery propio debes ingresar la dirección de envío.");
+            }
+        }
         String opPago = dto.codigoOperacionPago() != null ? dto.codigoOperacionPago().trim() : "";
         String urlComprobantePago = dto.comprobantePagoUrl() != null ? dto.comprobantePagoUrl().trim() : "";
 
@@ -73,28 +97,43 @@ public class PedidoService {
         List<DetallePedido> detalles = new ArrayList<>();
         if (dto.items() != null) {
             for (ItemPedidoDTO item : dto.items()) {
+                // Lock pesimoso sobre la fila del producto + validación de stock dentro de la transacción
+                Producto prod = productos.findByIdConBloqueo(item.id())
+                        .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado: " + item.id()));
+                if (!Boolean.TRUE.equals(prod.getActivo())) {
+                    throw new IllegalArgumentException("El producto no está activo: " + item.nombre());
+                }
+                int cant = item.cantidad() != null ? item.cantidad() : 1;
+                if (cant < 1) {
+                    throw new IllegalArgumentException("La cantidad del producto debe ser mayor o igual a 1");
+                }
+                int stockActual = prod.getStock() != null ? prod.getStock() : 0;
+                if (stockActual < cant) {
+                    throw new IllegalArgumentException("No hay stock suficiente para el producto: " + item.nombre()
+                            + " (disponible: " + stockActual + ")");
+                }
+                BigDecimal precio = prod.getPrecio() != null ? prod.getPrecio() : BigDecimal.ZERO;
                 DetallePedido det = new DetallePedido();
                 det.setPedido(pedido);
                 det.setProductoId(item.id());
                 det.setNombre(item.nombre());
-                BigDecimal precio = item.precio() != null ? item.precio() : BigDecimal.ZERO;
-                int cant = item.cantidad() != null ? item.cantidad() : 1;
                 det.setPrecioUnitario(precio);
                 det.setCantidad(cant);
-                det.setImagen(item.imagen());
+                det.setImagen(item.imagen() != null ? item.imagen() : prod.getImagen());
                 detalles.add(det);
                 subtotalItems = subtotalItems.add(precio.multiply(BigDecimal.valueOf(cant)));
+
+                // Descuento de stock dentro de la misma transacción (rollback automático si falla)
+                prod.setStock(stockActual - cant);
+                prod.setVendidos((prod.getVendidos() != null ? prod.getVendidos() : 0) + cant);
             }
         }
         pedido.setDetalles(detalles);
 
-        // Aplicación del Patrón Strategy para flete / envío
-        BigDecimal costoEnvioCalculado = dto.costoEnvio() != null
-                ? dto.costoEnvio()
-                : EstrategiaCostoEnvio.obtenerPorModalidad(tipoEntrega).calcular(subtotalItems);
+        // Cálculo oficial del costo de envío (reglas de negocio) y total final en el backend
+        BigDecimal costoEnvioCalculado = EstrategiaCostoEnvio.obtenerPorModalidad(tipoEntrega).calcular(subtotalItems);
         pedido.setCostoEnvio(costoEnvioCalculado);
-
-        pedido.setTotal(dto.total() != null ? dto.total() : subtotalItems.add(costoEnvioCalculado));
+        pedido.setTotal(subtotalItems.add(costoEnvioCalculado));
 
         if (dto.comprobante() != null) {
             ComprobanteDTO c = dto.comprobante();
@@ -144,7 +183,7 @@ public class PedidoService {
             }
         }
         Pedido p = pedidos.findByNumero(numero)
-                .orElseThrow(() -> new IllegalArgumentException("Pedido no encontrado: " + numero));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pedido no encontrado: " + numero));
 
         boolean pagoSinConfirmar = "Por verificar".equalsIgnoreCase(p.getEstadoPago())
                 || "Pendiente de pago".equalsIgnoreCase(p.getEstado());
@@ -179,7 +218,7 @@ public class PedidoService {
         }
 
         Pedido p = pedidos.findByNumero(numero)
-                .orElseThrow(() -> new IllegalArgumentException("Pedido no encontrado: " + numero));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pedido no encontrado: " + numero));
 
         if (!"Por verificar".equalsIgnoreCase(p.getEstadoPago()) && !"Pendiente de pago".equalsIgnoreCase(p.getEstado())) {
             throw new IllegalArgumentException("Este pedido no está pendiente de verificación de pago.");
