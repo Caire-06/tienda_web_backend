@@ -23,6 +23,7 @@ public class RegistroRequestDTO {
     private String direccion;
     private String dni;
     private String telefono;
+    private String captchaToken;
 
     public RegistroRequestDTO() {}
 
@@ -54,5 +55,8 @@ public class RegistroRequestDTO {
 
     public String getTelefono() { return telefono; }
     public void setTelefono(String telefono) { this.telefono = telefono; }
+
+    public String getCaptchaToken() { return captchaToken; }
+    public void setCaptchaToken(String captchaToken) { this.captchaToken = captchaToken; }
 }
 
