@@ -194,27 +194,8 @@ public class PerfilService {
             telefonos.save(tel);
         }
 
-        if (dto.direccionEnvio() != null && !dto.direccionEnvio().isBlank()
-                && !"recojo".equalsIgnoreCase(dto.tipoEntrega())) {
-            String calle = dto.direccionEnvio().trim();
-            List<Direccion> listaDir = direcciones.findByDatosPersonales_IdDatosPersonales(idDatos);
-            Direccion dir = listaDir.isEmpty() ? new Direccion() : listaDir.get(0);
-            Distrito distrito = resolverDistrito(dto.distritoEnvio());
-            if (distrito != null) {
-                dir.setDatosPersonales(datos);
-                dir.setDistrito(distrito);
-                dir.setCalleAvenida(calle.length() > 150 ? calle.substring(0, 150) : calle);
-                if (dto.referenciaEnvio() != null && !dto.referenciaEnvio().isBlank()) {
-                    String ref = dto.referenciaEnvio().trim();
-                    dir.setReferencia(ref.length() > 200 ? ref.substring(0, 200) : ref);
-                }
-                if (listaDir.isEmpty()) {
-                    dir.setTipoDireccion("DOMICILIO");
-                    dir.setNumero("S/N");
-                }
-                direcciones.save(dir);
-            }
-        }
+        // La dirección de entrega se guarda como copia en el pedido; NO debe sobrescribir la dirección permanente del perfil.
+        // (Solo el envío/recojo/agencia usa estos datos; el perfil conserva su dirección registrada).
 
         if (dto.correoContacto() != null && !dto.correoContacto().isBlank()) {
             List<CorreoElectronico> listaCorreo = correos.findByDatosPersonales_IdDatosPersonales(idDatos);

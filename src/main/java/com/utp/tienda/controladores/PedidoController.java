@@ -99,7 +99,8 @@ public class PedidoController {
         } catch (SecurityException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+            // 400: errores de negocio (pago pendiente, transición inválida); el "no encontrado" ya responde 404 vía ResponseStatusException
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 
