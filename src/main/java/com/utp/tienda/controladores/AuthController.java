@@ -1,9 +1,18 @@
 package com.utp.tienda.controladores;
 
 import com.utp.tienda.patrones.fachada.AuthFacade;
+import com.utp.tienda.modelos.servicios.ControlTraficoService;
 import com.utp.tienda.modelos.servicios.SesionService;
+import com.utp.tienda.modelos.servicios.TurnstileCaptchaService;
 import com.utp.tienda.modelos.servicios.VerificacionCorreoService;
-import com.utp.tienda.vistas.dto.*;
+import com.utp.tienda.vistas.dto.LoginRequestDTO;
+import com.utp.tienda.vistas.dto.LoginResponseDTO;
+import com.utp.tienda.vistas.dto.RegistroRequestDTO;
+import com.utp.tienda.vistas.dto.ReenviarCodigoDTO;
+import com.utp.tienda.vistas.dto.RestablecerPasswordDTO;
+import com.utp.tienda.vistas.dto.SolicitarRecuperacionDTO;
+import com.utp.tienda.vistas.dto.VerificarCodigoDTO;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -26,10 +35,18 @@ public class AuthController {
 
     private final AuthFacade authFacade;
     private final SesionService sesionService;
+    private final TurnstileCaptchaService turnstileCaptchaService;
+    private final ControlTraficoService controlTraficoService;
 
-    public AuthController(AuthFacade authFacade, SesionService sesionService) {
+    @org.springframework.beans.factory.annotation.Autowired
+    public AuthController(AuthFacade authFacade,
+                          SesionService sesionService,
+                          TurnstileCaptchaService turnstileCaptchaService,
+                          ControlTraficoService controlTraficoService) {
         this.authFacade = authFacade;
         this.sesionService = sesionService;
+        this.turnstileCaptchaService = turnstileCaptchaService;
+        this.controlTraficoService = controlTraficoService;
     }
 
     @PostMapping("/logout")
@@ -57,7 +74,14 @@ public class AuthController {
     }
 
     @PostMapping({"/registro", "/register"})
-    public ResponseEntity<LoginResponseDTO> registrar(@Valid @RequestBody RegistroRequestDTO request) {
+    public ResponseEntity<LoginResponseDTO> registrar(@Valid @RequestBody RegistroRequestDTO request,
+                                                      HttpServletRequest servletRequest) {
+        String ip = controlTraficoService != null ? controlTraficoService.obtenerIpCliente(servletRequest) : null;
+        if (turnstileCaptchaService != null && !turnstileCaptchaService.validar(request.getCaptchaToken(), ip)) {
+            return ResponseEntity.badRequest().body(
+                    LoginResponseDTO.fallo("Verificación de seguridad (CAPTCHA) no válida. Por favor, inténtalo nuevamente.", 0, false)
+            );
+        }
         try {
             LoginResponseDTO respuesta = authFacade.registrarCliente(request);
             return ResponseEntity.status(HttpStatus.CREATED).body(respuesta);
@@ -102,7 +126,14 @@ public class AuthController {
     }
 
     @PostMapping("/recuperar-password")
-    public ResponseEntity<?> recuperarPassword(@Valid @RequestBody SolicitarRecuperacionDTO request) {
+    public ResponseEntity<?> recuperarPassword(@Valid @RequestBody SolicitarRecuperacionDTO request,
+                                               HttpServletRequest servletRequest) {
+        String ip = controlTraficoService != null ? controlTraficoService.obtenerIpCliente(servletRequest) : null;
+        if (turnstileCaptchaService != null && !turnstileCaptchaService.validar(request.captchaToken(), ip)) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Verificación de seguridad (CAPTCHA) no válida. Por favor, inténtalo nuevamente."
+            ));
+        }
         try {
             authFacade.solicitarRecuperacionPassword(request.correo());
             return ResponseEntity.ok(Map.of(

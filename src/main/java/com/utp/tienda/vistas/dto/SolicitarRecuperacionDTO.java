@@ -6,6 +6,11 @@ import jakarta.validation.constraints.NotBlank;
 public record SolicitarRecuperacionDTO(
         @NotBlank(message = "El correo electrónico es obligatorio")
         @Email(message = "Ingresa un correo electrónico válido")
-        String correo
-) {}
+        String correo,
+        String captchaToken
+) {
+    public SolicitarRecuperacionDTO(String correo) {
+        this(correo, null);
+    }
+}
 
