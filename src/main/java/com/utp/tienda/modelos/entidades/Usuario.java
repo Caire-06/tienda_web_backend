@@ -60,6 +60,12 @@ public class Usuario {
     @Column(name = "requiere_cambio_password")
     private Boolean requiereCambioPassword = false;
 
+    @Column(name = "correo_verificado")
+    private Boolean correoVerificado;
+
+    @Column(name = "two_factor_activo")
+    private Boolean twoFactorActivo = false;
+
     public Usuario() {}
 
     public Usuario(String nombreUsuario, String contrasena, Rol rol) {
@@ -117,5 +123,14 @@ public class Usuario {
 
     public Boolean getRequiereCambioPassword() { return Boolean.TRUE.equals(requiereCambioPassword); }
     public void setRequiereCambioPassword(Boolean requiereCambioPassword) { this.requiereCambioPassword = requiereCambioPassword; }
+
+    public Boolean getCorreoVerificado() { return correoVerificado; }
+    public void setCorreoVerificado(Boolean correoVerificado) { this.correoVerificado = correoVerificado; }
+    /** Los usuarios previos sin valor explícito (null) conservan compatibilidad como verificados. */
+    public boolean isCorreoVerificado() { return correoVerificado == null || Boolean.TRUE.equals(correoVerificado); }
+
+    public Boolean getTwoFactorActivo() { return Boolean.TRUE.equals(twoFactorActivo); }
+    public void setTwoFactorActivo(Boolean twoFactorActivo) { this.twoFactorActivo = twoFactorActivo; }
+    public boolean isTwoFactorActivo() { return Boolean.TRUE.equals(twoFactorActivo); }
 }
 

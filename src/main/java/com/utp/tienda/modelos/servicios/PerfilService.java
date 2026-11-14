@@ -20,12 +20,14 @@ public class PerfilService {
     private final SexoRepository sexos;
     private final EstadoCivilRepository estadosCiviles;
     private final PasswordEncryptionStrategy encryptionStrategy;
+    private final VerificacionCorreoService verificacionCorreoService;
 
     public PerfilService(UsuarioRepository usuarios, DatosPersonalesRepository datosRepo,
                          CorreoElectronicoRepository correos, TelefonoRepository telefonos,
                          DireccionRepository direcciones, DistritoRepository distritos,
                          SexoRepository sexos, EstadoCivilRepository estadosCiviles,
-                         @Qualifier("sha256Strategy") PasswordEncryptionStrategy encryptionStrategy) {
+                         @Qualifier("sha256Strategy") PasswordEncryptionStrategy encryptionStrategy,
+                         VerificacionCorreoService verificacionCorreoService) {
         this.usuarios = usuarios;
         this.datosRepo = datosRepo;
         this.correos = correos;
@@ -35,6 +37,7 @@ public class PerfilService {
         this.sexos = sexos;
         this.estadosCiviles = estadosCiviles;
         this.encryptionStrategy = encryptionStrategy;
+        this.verificacionCorreoService = verificacionCorreoService;
     }
 
     private Distrito resolverDistrito(String nombreDistrito) {
@@ -69,7 +72,9 @@ public class PerfilService {
             correo, telefono, dir == null ? "" : dir.getCalleAvenida(),
             dir == null || dir.getDistrito() == null ? "" : dir.getDistrito().getNombreDistrito(),
             usuario.getRol() == null ? "" : usuario.getRol().getNombreRol(),
-            Boolean.TRUE.equals(usuario.getRequiereCambioPassword()));
+            Boolean.TRUE.equals(usuario.getRequiereCambioPassword()),
+            usuario.isCorreoVerificado(),
+            usuario.isTwoFactorActivo());
     }
 
     @Transactional
@@ -234,5 +239,31 @@ public class PerfilService {
         usuario.setRequiereCambioPassword(false);
         usuario.setFechaActualizacion(LocalDateTime.now());
         usuarios.save(usuario);
+    }
+
+    @Transactional
+    public PerfilDTO cambiarTwoFactor(Integer idUsuario, boolean activo) {
+        Usuario usuario = usuarios.findById(idUsuario)
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
+
+        if (activo) {
+            if (!verificacionCorreoService.servicioDisponible()) {
+                throw new IllegalStateException(
+                        "No se puede activar la verificación en dos pasos porque el envío de correos aún no está configurado en el servidor.");
+            }
+            if (!verificacionCorreoService.tieneCorreoRegistrado(idUsuario)) {
+                throw new IllegalArgumentException(
+                        "Debes registrar un correo electrónico válido antes de activar la verificación en dos pasos.");
+            }
+            if (!usuario.isCorreoVerificado()) {
+                throw new IllegalArgumentException(
+                        "Tu correo electrónico debe estar verificado antes de activar la verificación en dos pasos.");
+            }
+        }
+
+        usuario.setTwoFactorActivo(activo);
+        usuario.setFechaActualizacion(LocalDateTime.now());
+        usuarios.save(usuario);
+        return consultar(idUsuario);
     }
 }

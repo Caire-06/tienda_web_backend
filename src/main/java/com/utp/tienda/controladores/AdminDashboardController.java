@@ -3,7 +3,6 @@ package com.utp.tienda.controladores;
 import com.utp.tienda.modelos.servicios.DashboardAdminService;
 import com.utp.tienda.vistas.dto.DashboardKpisDTO;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -14,7 +13,6 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/admin/dashboard")
-@CrossOrigin(origins = "*")
 public class AdminDashboardController {
 
     private final DashboardAdminService dashboardAdminService;

@@ -19,7 +19,6 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/despachos")
-@CrossOrigin(origins = "*")
 public class DespachoController {
 
     private final DespachoLoteService despachoLoteService;
@@ -44,6 +43,9 @@ public class DespachoController {
     public ResponseEntity<?> crearLote(@RequestHeader(value = "Authorization", required = false) String auth,
                                        @Valid @RequestBody CrearDespachoLoteDTO body) {
         Integer usuarioId = sesionService.identificar(auth);
+        if (usuarioId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Sesión inválida"));
+        }
         try {
             DespachoLoteDTO creado = despachoLoteService.crearLote(usuarioId, body);
             return ResponseEntity.status(HttpStatus.CREATED).body(creado);

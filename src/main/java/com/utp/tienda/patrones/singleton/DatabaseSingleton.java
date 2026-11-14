@@ -14,15 +14,28 @@ public class DatabaseSingleton {
     private static DatabaseSingleton instance;
     private Connection connection;
 
-    private static final String URL = "jdbc:postgresql://localhost:5432/bd_sistema_negocio";
-    private static final String USER = "postgres";
-    private static final String PASSWORD = "postgres";
+    // Credenciales leídas desde variables de entorno (Render o .env local; nunca en código).
+    // Referencia local:
+    //   SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/bd_sistema_negocio
+    //   SPRING_DATASOURCE_USERNAME=postgres
+    //   SPRING_DATASOURCE_PASSWORD=tu_password_local
+    private static String env(String nombre) {
+        String valor = System.getenv(nombre);
+        return valor != null ? valor.trim() : "";
+    }
 
     // [BLOQUE 2: CONSTRUCTOR PRIVADO]
     private DatabaseSingleton() {
+        String url = env("SPRING_DATASOURCE_URL");
+        String user = env("SPRING_DATASOURCE_USERNAME");
+        String password = env("SPRING_DATASOURCE_PASSWORD");
+        if (url.isBlank() || user.isBlank() || password.isBlank()) {
+            System.err.println("[DatabaseSingleton] Faltan variables SPRING_DATASOURCE_URL/USERNAME/PASSWORD.");
+            return;
+        }
         try {
             Class.forName("org.postgresql.Driver");
-            this.connection = DriverManager.getConnection(URL, USER, PASSWORD);
+            this.connection = DriverManager.getConnection(url, user, password);
         } catch (ClassNotFoundException | SQLException e) {
             System.err.println("[DatabaseSingleton] Error conectando a PostgreSQL: " + e.getMessage());
         }

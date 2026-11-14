@@ -4,6 +4,7 @@ import com.utp.tienda.modelos.entidades.*;
 import com.utp.tienda.modelos.repositorios.*;
 import com.utp.tienda.modelos.servicios.PasswordEncryptionStrategy;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,6 +38,12 @@ public class DataInitializer implements CommandLineRunner {
     private final ProductoRepository productoRepository;
     private final PedidoRepository pedidoRepository;
     private final PasswordEncryptionStrategy encryptionStrategy;
+
+    @Value("${app.seed.admin-password:}")
+    private String seedAdminPassword;
+
+    @Value("${app.seed.almacen-password:}")
+    private String seedAlmacenPassword;
 
     public DataInitializer(PaisRepository paisRepository,
                            DepartamentoRepository departamentoRepository,
@@ -137,103 +144,113 @@ public class DataInitializer implements CommandLineRunner {
         Permiso permisoTodo = permisoRepository.findByNombrePermiso("TODO")
                 .orElseGet(() -> permisoRepository.save(new Permiso(null, "TODO", "Acceso total a todos los módulos")));
 
-        // 4. Usuario Administrador Inicial
-        Usuario adminGuardado;
+        // 4. Usuario Administrador Inicial (requiere SEED_ADMIN_PASSWORD en .env o Render)
+        Usuario adminGuardado = null;
         if (!usuarioRepository.existsByNombreUsuario("admin")) {
-            Usuario admin = new Usuario();
-            admin.setNombreUsuario("admin");
-            admin.setContrasena(encryptionStrategy.encriptar("admin123"));
-            admin.setRol(rolAdmin);
-            admin.setPermiso(permisoTodo);
-            admin.setIntentosFallidos(0);
-            admin.setBloqueado(false);
+            if (seedAdminPassword != null && !seedAdminPassword.isBlank()) {
+                Usuario admin = new Usuario();
+                admin.setNombreUsuario("admin");
+                admin.setContrasena(encryptionStrategy.encriptar(seedAdminPassword.trim()));
+                admin.setRol(rolAdmin);
+                admin.setPermiso(permisoTodo);
+                admin.setIntentosFallidos(0);
+                admin.setBloqueado(false);
+                admin.setCorreoVerificado(true);
 
-            adminGuardado = usuarioRepository.save(admin);
+                adminGuardado = usuarioRepository.save(admin);
 
-            // Datos Personales en 3FN
-            DatosPersonales datos = new DatosPersonales();
-            datos.setUsuario(adminGuardado);
-            datos.setNombres("Gustavo");
-            datos.setApellidos("Asto Aiquipa");
-            datos.setDni("72345678");
-            datos.setSexo(masculino);
-            datos.setEstadoCivil(soltero);
+                // Datos Personales en 3FN
+                DatosPersonales datos = new DatosPersonales();
+                datos.setUsuario(adminGuardado);
+                datos.setNombres("Gustavo");
+                datos.setApellidos("Asto Aiquipa");
+                datos.setDni("72345678");
+                datos.setSexo(masculino);
+                datos.setEstadoCivil(soltero);
 
-            DatosPersonales datosGuardados = datosPersonalesRepository.save(datos);
+                DatosPersonales datosGuardados = datosPersonalesRepository.save(datos);
 
-            // Correo 1:N
-            CorreoElectronico correo = new CorreoElectronico();
-            correo.setDatosPersonales(datosGuardados);
-            correo.setCorreoElectronico("admin@techstore.com");
-            correo.setTipoCorreo("CORPORATIVO");
-            correoRepository.save(correo);
+                // Correo 1:N
+                CorreoElectronico correo = new CorreoElectronico();
+                correo.setDatosPersonales(datosGuardados);
+                correo.setCorreoElectronico("admin@techstore.com");
+                correo.setTipoCorreo("CORPORATIVO");
+                correoRepository.save(correo);
 
-            // Teléfono 1:N
-            Telefono telefono = new Telefono();
-            telefono.setDatosPersonales(datosGuardados);
-            telefono.setNumeroTelefono("987654321");
-            telefono.setTipoTelefono("MOVIL");
-            telefonoRepository.save(telefono);
+                // Teléfono 1:N
+                Telefono telefono = new Telefono();
+                telefono.setDatosPersonales(datosGuardados);
+                telefono.setNumeroTelefono("987654321");
+                telefono.setTipoTelefono("MOVIL");
+                telefonoRepository.save(telefono);
 
-            // Dirección en 3FN
-            Direccion direccion = new Direccion();
-            direccion.setDatosPersonales(datosGuardados);
-            direccion.setDistrito(sjl);
-            direccion.setCalleAvenida("Av. Las Flores 123");
-            direccion.setTipoDireccion("DOMICILIO");
-            direccion.setNumero("123");
-            direccion.setReferencia("Cerca a la estación del tren");
-            direccionRepository.save(direccion);
+                // Dirección en 3FN
+                Direccion direccion = new Direccion();
+                direccion.setDatosPersonales(datosGuardados);
+                direccion.setDistrito(sjl);
+                direccion.setCalleAvenida("Av. Las Flores 123");
+                direccion.setTipoDireccion("DOMICILIO");
+                direccion.setNumero("123");
+                direccion.setReferencia("Cerca a la estación del tren");
+                direccionRepository.save(direccion);
 
-            System.out.println(">>> [Hibernate] Usuario 'admin' inicializado exitosamente.");
+                System.out.println(">>> [Hibernate] Usuario 'admin' inicializado exitosamente.");
+            } else {
+                System.out.println(">>> [Hibernate] SEED_ADMIN_PASSWORD no definido: se omite creación automática de 'admin'.");
+            }
         } else {
             adminGuardado = usuarioRepository.findByNombreUsuario("admin").orElse(null);
         }
 
-        // 5. Usuario Almacén Inicial
+        // 5. Usuario Almacén Inicial (requiere SEED_ALMACEN_PASSWORD en .env o Render)
         if (!usuarioRepository.existsByNombreUsuario("almacen")) {
-            Usuario userAlmacen = new Usuario();
-            userAlmacen.setNombreUsuario("almacen");
-            userAlmacen.setContrasena(encryptionStrategy.encriptar("123"));
-            userAlmacen.setRol(rolAlmacen);
-            userAlmacen.setPermiso(permisoTodo);
-            userAlmacen.setIntentosFallidos(0);
-            userAlmacen.setBloqueado(false);
+            if (seedAlmacenPassword != null && !seedAlmacenPassword.isBlank()) {
+                Usuario userAlmacen = new Usuario();
+                userAlmacen.setNombreUsuario("almacen");
+                userAlmacen.setContrasena(encryptionStrategy.encriptar(seedAlmacenPassword.trim()));
+                userAlmacen.setRol(rolAlmacen);
+                userAlmacen.setPermiso(permisoTodo);
+                userAlmacen.setIntentosFallidos(0);
+                userAlmacen.setBloqueado(false);
+                userAlmacen.setCorreoVerificado(true);
 
-            Usuario almacenGuardado = usuarioRepository.save(userAlmacen);
+                Usuario almacenGuardado = usuarioRepository.save(userAlmacen);
 
-            DatosPersonales datosAlmacen = new DatosPersonales();
-            datosAlmacen.setUsuario(almacenGuardado);
-            datosAlmacen.setNombres("Carlos");
-            datosAlmacen.setApellidos("Operador Almacén");
-            datosAlmacen.setDni("71234567");
-            datosAlmacen.setSexo(masculino);
-            datosAlmacen.setEstadoCivil(soltero);
+                DatosPersonales datosAlmacen = new DatosPersonales();
+                datosAlmacen.setUsuario(almacenGuardado);
+                datosAlmacen.setNombres("Carlos");
+                datosAlmacen.setApellidos("Operador Almacén");
+                datosAlmacen.setDni("71234567");
+                datosAlmacen.setSexo(masculino);
+                datosAlmacen.setEstadoCivil(soltero);
 
-            DatosPersonales datosAlmacenGuardados = datosPersonalesRepository.save(datosAlmacen);
+                DatosPersonales datosAlmacenGuardados = datosPersonalesRepository.save(datosAlmacen);
 
-            CorreoElectronico correoAlmacen = new CorreoElectronico();
-            correoAlmacen.setDatosPersonales(datosAlmacenGuardados);
-            correoAlmacen.setCorreoElectronico("almacen@techstore.com");
-            correoAlmacen.setTipoCorreo("CORPORATIVO");
-            correoRepository.save(correoAlmacen);
+                CorreoElectronico correoAlmacen = new CorreoElectronico();
+                correoAlmacen.setDatosPersonales(datosAlmacenGuardados);
+                correoAlmacen.setCorreoElectronico("almacen@techstore.com");
+                correoAlmacen.setTipoCorreo("CORPORATIVO");
+                correoRepository.save(correoAlmacen);
 
-            Telefono telefonoAlmacen = new Telefono();
-            telefonoAlmacen.setDatosPersonales(datosAlmacenGuardados);
-            telefonoAlmacen.setNumeroTelefono("987654322");
-            telefonoAlmacen.setTipoTelefono("MOVIL");
-            telefonoRepository.save(telefonoAlmacen);
+                Telefono telefonoAlmacen = new Telefono();
+                telefonoAlmacen.setDatosPersonales(datosAlmacenGuardados);
+                telefonoAlmacen.setNumeroTelefono("987654322");
+                telefonoAlmacen.setTipoTelefono("MOVIL");
+                telefonoRepository.save(telefonoAlmacen);
 
-            Direccion dirAlmacen = new Direccion();
-            dirAlmacen.setDatosPersonales(datosAlmacenGuardados);
-            dirAlmacen.setDistrito(sjl);
-            dirAlmacen.setCalleAvenida("Av. Las Flores 124");
-            dirAlmacen.setTipoDireccion("DOMICILIO");
-            dirAlmacen.setNumero("124");
-            dirAlmacen.setReferencia("Almacén Central TechStore");
-            direccionRepository.save(dirAlmacen);
+                Direccion dirAlmacen = new Direccion();
+                dirAlmacen.setDatosPersonales(datosAlmacenGuardados);
+                dirAlmacen.setDistrito(sjl);
+                dirAlmacen.setCalleAvenida("Av. Las Flores 124");
+                dirAlmacen.setTipoDireccion("DOMICILIO");
+                dirAlmacen.setNumero("124");
+                dirAlmacen.setReferencia("Almacén Central TechStore");
+                direccionRepository.save(dirAlmacen);
 
-            System.out.println(">>> [Hibernate] Usuario 'almacen' inicializado exitosamente.");
+                System.out.println(">>> [Hibernate] Usuario 'almacen' inicializado exitosamente.");
+            } else {
+                System.out.println(">>> [Hibernate] SEED_ALMACEN_PASSWORD no definido: se omite creación automática de 'almacen'.");
+            }
         }
 
         // 6. Catálogo de Productos Inicial en Base de Datos
