@@ -113,5 +113,20 @@ class CorreoSeguridadUnitTest {
         assertTrue(AutorizacionDecoratorFilter.rolPermitido(PoliticaRuta.ADMIN_O_ALMACEN, "ALMACEN"));
         assertFalse(AutorizacionDecoratorFilter.rolPermitido(PoliticaRuta.ADMIN_O_ALMACEN, "CLIENTE"));
     }
+
+    @Test
+    void turnstileCaptchaServiceSeDesactivaSinClaveYRechazaTokensVaciosConClave() {
+        com.utp.tienda.modelos.servicios.TurnstileCaptchaService sinClave =
+                new com.utp.tienda.modelos.servicios.TurnstileCaptchaService("");
+        assertFalse(sinClave.estaHabilitado());
+        assertTrue(sinClave.validar(null, "127.0.0.1"));
+        assertTrue(sinClave.validar("token-prueba", "127.0.0.1"));
+
+        com.utp.tienda.modelos.servicios.TurnstileCaptchaService conClave =
+                new com.utp.tienda.modelos.servicios.TurnstileCaptchaService("secret-real-123");
+        assertTrue(conClave.estaHabilitado());
+        assertFalse(conClave.validar(null, "127.0.0.1"));
+        assertFalse(conClave.validar("   ", "127.0.0.1"));
+    }
 }
 
