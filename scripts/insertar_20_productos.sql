@@ -35,6 +35,11 @@ CREATE TABLE IF NOT EXISTS especificaciones_tecnicas (
 CREATE INDEX IF NOT EXISTS idx_especificaciones_producto
     ON especificaciones_tecnicas(id_producto);
 
+-- Asegurar valores DEFAULT en caso la tabla ya existiera creada por Hibernate sin defaults
+ALTER TABLE especificaciones_tecnicas ALTER COLUMN activo SET DEFAULT TRUE;
+ALTER TABLE especificaciones_tecnicas ALTER COLUMN fecha_creacion SET DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE especificaciones_tecnicas ALTER COLUMN usuario_registro SET DEFAULT 'SISTEMA';
+
 -- ----------------------------------------------------------------------------
 -- 1. Inserción de Productos
 -- ----------------------------------------------------------------------------
@@ -310,8 +315,21 @@ UPDATE productos SET categoria = 'Laptops' WHERE categoria = 'Computadoras';
 CREATE OR REPLACE FUNCTION insertar_spec(prod_nombre TEXT, caract TEXT, val TEXT)
 RETURNS VOID AS $$
 BEGIN
-    INSERT INTO especificaciones_tecnicas (id_producto, caracteristica, valor, usuario_registro)
-    SELECT p.id_producto, caract, val, 'SISTEMA'
+    INSERT INTO especificaciones_tecnicas (
+        id_producto,
+        caracteristica,
+        valor,
+        activo,
+        fecha_creacion,
+        usuario_registro
+    )
+    SELECT
+        p.id_producto,
+        caract,
+        val,
+        TRUE,
+        CURRENT_TIMESTAMP,
+        'SISTEMA'
     FROM productos p
     WHERE p.nombre = prod_nombre
       AND NOT EXISTS (
