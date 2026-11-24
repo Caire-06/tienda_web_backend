@@ -155,7 +155,6 @@ public class PedidoService {
     }
 
     @Transactional(readOnly = true)
-    @Transactional(readOnly = true)
     public List<PedidoDTO> misCompras(Integer usuarioId) {
         return pedidos.findByUsuario_IdUsuarioOrderByFechaDesc(usuarioId).stream()
                 .map(this::mapear)

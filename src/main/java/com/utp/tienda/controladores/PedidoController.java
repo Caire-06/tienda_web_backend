@@ -97,9 +97,6 @@ public class PedidoController {
                 org.springframework.data.domain.PageRequest.of(page, Math.max(1, Math.min(size, 100)));
         return ResponseEntity.ok(com.utp.tienda.vistas.dto.PaginaDTO.de(pedidos.listarTodosPaginado(pageable)));
     }
-        if (id == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Sesión inválida"));
-        return ResponseEntity.ok(pedidos.listarTodos());
-    }
 
     @PutMapping("/{numero}/estado")
     public ResponseEntity<?> actualizarEstado(@RequestHeader(value = "Authorization", required = false) String auth,
