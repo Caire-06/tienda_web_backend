@@ -97,6 +97,12 @@ public class EntradaMercaderiaService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<EntradaDTO> misEntradasPaginado(Integer usuarioId, org.springframework.data.domain.Pageable pageable) {
+        return entradas.findByUsuario_IdUsuarioOrderByFechaDesc(usuarioId, pageable)
+                .map(this::mapear);
+    }
+
     private EntradaDTO mapear(Entrada e) {
         List<ItemEntradaDTO> items = e.getDetalles().stream()
                 .map(d -> new ItemEntradaDTO(d.getProductoId(), d.getProveedorId(), d.getCantidad(), d.getCostoUnitario()))

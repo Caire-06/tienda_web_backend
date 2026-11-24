@@ -22,6 +22,10 @@ public class ProveedorService {
         return proveedores.findByActivoTrueOrderByNombreAsc().stream().toList();
     }
 
+    public org.springframework.data.domain.Page<Proveedor> listarActivosPaginado(org.springframework.data.domain.Pageable pageable) {
+        return proveedores.findByActivoTrueOrderByNombreAsc(pageable);
+    }
+
     /** Registra un nuevo proveedor (operación restringida a roles administrativos/almacén). */
     public Proveedor crear(Integer usuarioId, CrearProveedorDTO dto) {
         productoService.verificarRolPermitido(usuarioId);
@@ -33,6 +37,25 @@ public class ProveedorService {
         proveedor.setEmail(dto.email());
         proveedor.setDireccion(dto.direccion());
         proveedor.setActivo(dto.activo() != null ? dto.activo() : true);
+        return proveedores.save(proveedor);
+    }
+
+    /** Actualiza un proveedor existente con auditoría. */
+    public Proveedor actualizar(Integer usuarioId, Integer idProveedor, CrearProveedorDTO dto) {
+        productoService.verificarRolPermitido(usuarioId);
+        Proveedor proveedor = proveedores.findById(idProveedor)
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.NOT_FOUND, "Proveedor no encontrado con ID: " + idProveedor));
+        proveedor.setNombre(dto.nombre());
+        proveedor.setRuc(dto.ruc());
+        proveedor.setContacto(dto.contacto());
+        proveedor.setTelefono(dto.telefono());
+        proveedor.setEmail(dto.email());
+        proveedor.setDireccion(dto.direccion());
+        if (dto.activo() != null) {
+            proveedor.setActivo(dto.activo());
+        }
+        proveedor.setFechaActualizacion(java.time.LocalDateTime.now());
         return proveedores.save(proveedor);
     }
 }

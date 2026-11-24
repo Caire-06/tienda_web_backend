@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -27,11 +28,19 @@ public class KardexController {
 
     /** GET /api/kardex/movimientos -> movimientos de entrada/salida (Kardex) con saldo. */
     @GetMapping("/movimientos")
-    public ResponseEntity<?> movimientos(@RequestHeader(value = "Authorization", required = false) String auth) {
+    public ResponseEntity<?> movimientos(
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false, defaultValue = "10") Integer size,
+            @RequestHeader(value = "Authorization", required = false) String auth) {
         Integer id = sesiones.identificar(auth);
         if (id == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Sesión inválida"));
-        List<KardexMovimientoDTO> movimientos = kardex.movimientos(id);
-        return ResponseEntity.ok(movimientos);
+        if (page == null) {
+            List<KardexMovimientoDTO> movimientos = kardex.movimientos(id);
+            return ResponseEntity.ok(movimientos);
+        }
+        org.springframework.data.domain.Pageable pageable = 
+                org.springframework.data.domain.PageRequest.of(page, Math.max(1, Math.min(size, 100)));
+        return ResponseEntity.ok(kardex.movimientosPaginado(id, pageable));
     }
 
     /** GET /api/kardex/resumen -> resumen del Kardex para el dashboard del almacén. */
