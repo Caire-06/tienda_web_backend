@@ -121,39 +121,45 @@ public class DespachoLoteService {
     }
 
     @Transactional(readOnly = true)
-    public List<DespachoLoteDTO> listarLotes() {
-        List<DespachoLote> lotes = despachoLoteRepository.findAllByOrderByFechaDespachoDesc();
-        List<DespachoLoteDTO> dtos = new ArrayList<>();
+    public DespachoLoteDTO mapearLoteDTO(DespachoLote l) {
+        List<Pedido> pedidosDelLote = l.getPedidos();
+        List<String> numeros = new ArrayList<>();
+        BigDecimal suma = BigDecimal.ZERO;
 
-        for (DespachoLote l : lotes) {
-            List<Pedido> pedidosDelLote = l.getPedidos();
-            List<String> numeros = new ArrayList<>();
-            BigDecimal suma = BigDecimal.ZERO;
-
-            if (pedidosDelLote != null) {
-                for (Pedido p : pedidosDelLote) {
-                    numeros.add(p.getNumero());
-                    if (p.getTotal() != null) suma = suma.add(p.getTotal());
-                }
+        if (pedidosDelLote != null) {
+            for (Pedido p : pedidosDelLote) {
+                numeros.add(p.getNumero());
+                if (p.getTotal() != null) suma = suma.add(p.getTotal());
             }
-
-            dtos.add(new DespachoLoteDTO(
-                    l.getIdDespacho(),
-                    l.getCodigoLote(),
-                    l.getEmpresaTransporte(),
-                    l.getNumeroGuiaRemision(),
-                    l.getConductor(),
-                    l.getPlacaVehiculo(),
-                    l.getObservaciones(),
-                    l.getFechaDespacho() != null ? l.getFechaDespacho().format(FECHA_FMT) : "—",
-                    l.getUsuarioRegistro(),
-                    l.getEstado(),
-                    numeros.size(),
-                    suma,
-                    numeros
-            ));
         }
-        return dtos;
+
+        return new DespachoLoteDTO(
+                l.getIdDespacho(),
+                l.getCodigoLote(),
+                l.getEmpresaTransporte(),
+                l.getNumeroGuiaRemision(),
+                l.getConductor(),
+                l.getPlacaVehiculo(),
+                l.getObservaciones(),
+                l.getFechaDespacho() != null ? l.getFechaDespacho().format(FECHA_FMT) : "—",
+                l.getUsuarioRegistro(),
+                l.getEstado(),
+                numeros.size(),
+                suma,
+                numeros
+        );
+    }
+
+    public List<DespachoLoteDTO> listarLotes() {
+        return despachoLoteRepository.findAllByOrderByFechaDespachoDesc().stream()
+                .map(this::mapearLoteDTO)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<DespachoLoteDTO> listarLotesPaginado(org.springframework.data.domain.Pageable pageable) {
+        return despachoLoteRepository.findAllByOrderByFechaDespachoDesc(pageable)
+                .map(this::mapearLoteDTO);
     }
 
     @Transactional(readOnly = true)
@@ -166,6 +172,12 @@ public class DespachoLoteService {
                         && !"Por verificar".equalsIgnoreCase(p.getEstadoPago()))
                 .map(pedidoService::mapear)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<PedidoDTO> listarPedidosPendientesDespachoPaginado(org.springframework.data.domain.Pageable pageable) {
+        return pedidoRepository.findPedidosPendientesDespachoPaginado(pageable)
+                .map(pedidoService::mapear);
     }
 
     @Transactional

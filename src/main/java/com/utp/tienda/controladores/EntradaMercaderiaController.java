@@ -40,10 +40,18 @@ public class EntradaMercaderiaController {
 
     /** GET /api/entradas/mias -> historial de entradas registradas. */
     @GetMapping("/mis-entradas")
-    public ResponseEntity<?> misEntradas(@RequestHeader(value = "Authorization", required = false) String auth) {
+    public ResponseEntity<?> misEntradas(
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false, defaultValue = "10") Integer size,
+            @RequestHeader(value = "Authorization", required = false) String auth) {
         Integer id = sesiones.identificar(auth);
         if (id == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Sesión inválida"));
-        List<EntradaDTO> lista = entradas.misEntradas(id);
-        return ResponseEntity.ok(lista);
+        if (page == null) {
+            List<EntradaDTO> lista = entradas.misEntradas(id);
+            return ResponseEntity.ok(lista);
+        }
+        org.springframework.data.domain.Pageable pageable = 
+                org.springframework.data.domain.PageRequest.of(page, Math.max(1, Math.min(size, 100)));
+        return ResponseEntity.ok(com.utp.tienda.vistas.dto.PaginaDTO.de(entradas.misEntradasPaginado(id, pageable)));
     }
 }

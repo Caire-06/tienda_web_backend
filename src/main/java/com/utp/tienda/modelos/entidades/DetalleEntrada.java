@@ -16,6 +16,10 @@ public class DetalleEntrada {
     @JoinColumn(name = "id_entrada", nullable = false)
     private Entrada entrada;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_proveedor")
+    private Proveedor proveedor;
+
     @Column(name = "producto_id", nullable = false)
     private Integer productoId;
 
@@ -35,6 +39,11 @@ public class DetalleEntrada {
 
     public Entrada getEntrada() { return entrada; }
     public void setEntrada(Entrada entrada) { this.entrada = entrada; }
+
+    public Proveedor getProveedor() { return proveedor; }
+    public void setProveedor(Proveedor proveedor) { this.proveedor = proveedor; }
+
+    public Integer getProveedorId() { return proveedor != null ? proveedor.getIdProveedor() : null; }
 
     public Integer getProductoId() { return productoId; }
     public void setProductoId(Integer productoId) { this.productoId = productoId; }

@@ -68,18 +68,34 @@ public class PedidoController {
     }
 
     @GetMapping("/mis-compras")
-    public ResponseEntity<?> misCompras(@RequestHeader(value = "Authorization", required = false) String auth) {
+    public ResponseEntity<?> misCompras(
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false, defaultValue = "10") Integer size,
+            @RequestHeader(value = "Authorization", required = false) String auth) {
         Integer id = sesiones.identificar(auth);
         if (id == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Sesión inválida"));
-        List<PedidoDTO> lista = pedidos.misCompras(id);
-        return ResponseEntity.ok(lista);
+        if (page == null) {
+            List<PedidoDTO> lista = pedidos.misCompras(id);
+            return ResponseEntity.ok(lista);
+        }
+        org.springframework.data.domain.Pageable pageable = 
+                org.springframework.data.domain.PageRequest.of(page, Math.max(1, Math.min(size, 100)));
+        return ResponseEntity.ok(com.utp.tienda.vistas.dto.PaginaDTO.de(pedidos.misComprasPaginado(id, pageable)));
     }
 
     @GetMapping
-    public ResponseEntity<?> listarTodos(@RequestHeader(value = "Authorization", required = false) String auth) {
+    public ResponseEntity<?> listarTodos(
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false, defaultValue = "10") Integer size,
+            @RequestHeader(value = "Authorization", required = false) String auth) {
         Integer id = sesiones.identificar(auth);
         if (id == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Sesión inválida"));
-        return ResponseEntity.ok(pedidos.listarTodos());
+        if (page == null) {
+            return ResponseEntity.ok(pedidos.listarTodos());
+        }
+        org.springframework.data.domain.Pageable pageable = 
+                org.springframework.data.domain.PageRequest.of(page, Math.max(1, Math.min(size, 100)));
+        return ResponseEntity.ok(com.utp.tienda.vistas.dto.PaginaDTO.de(pedidos.listarTodosPaginado(pageable)));
     }
 
     @PutMapping("/{numero}/estado")

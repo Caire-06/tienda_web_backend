@@ -3,10 +3,12 @@ package com.utp.tienda.modelos.servicios;
 import com.utp.tienda.modelos.entidades.DetalleEntrada;
 import com.utp.tienda.modelos.entidades.Entrada;
 import com.utp.tienda.modelos.entidades.Producto;
+import com.utp.tienda.modelos.entidades.Proveedor;
 import com.utp.tienda.modelos.entidades.Usuario;
 import com.utp.tienda.modelos.repositorios.EntradaRepository;
 import com.utp.tienda.modelos.repositorios.DetalleEntradaRepository;
 import com.utp.tienda.modelos.repositorios.ProductoRepository;
+import com.utp.tienda.modelos.repositorios.ProveedorRepository;
 import com.utp.tienda.modelos.repositorios.UsuarioRepository;
 import com.utp.tienda.modelos.servicios.ProductoService;
 import com.utp.tienda.vistas.dto.CrearEntradaDTO;
@@ -27,17 +29,20 @@ public class EntradaMercaderiaService {
     private final ProductoRepository productos;
     private final ProductoService productoService;
     private final UsuarioRepository usuarios;
+    private final ProveedorRepository proveedores;
 
     public EntradaMercaderiaService(EntradaRepository entradas,
                                    DetalleEntradaRepository detalles,
                                    ProductoRepository productos,
                                    ProductoService productoService,
-                                   UsuarioRepository usuarios) {
+                                   UsuarioRepository usuarios,
+                                   ProveedorRepository proveedores) {
         this.entradas = entradas;
         this.detalles = detalles;
         this.productos = productos;
         this.productoService = productoService;
         this.usuarios = usuarios;
+        this.proveedores = proveedores;
     }
 
     /** Registra una entrada de mercadería (varias líneas de productos) y actualiza el stock. */
@@ -60,12 +65,19 @@ public class EntradaMercaderiaService {
                 if (cantidad <= 0) throw new IllegalArgumentException("La cantidad debe ser mayor a cero");
                 BigDecimal costo = item.costoUnitario() != null ? item.costoUnitario() : BigDecimal.ZERO;
 
+                Proveedor proveedor = null;
+                if (item.idProveedor() != null) {
+                    proveedor = proveedores.findById(item.idProveedor())
+                            .orElseThrow(() -> new IllegalArgumentException("Proveedor no encontrado: " + item.idProveedor()));
+                }
+
                 // La entrada de mercadería suma stock al producto (Kardex de ingresos).
                 int stockActual = producto.getStock() != null ? producto.getStock() : 0;
                 producto.setStock(stockActual + cantidad);
 
                 DetalleEntrada detalle = new DetalleEntrada();
                 detalle.setEntrada(entrada);
+                detalle.setProveedor(proveedor);
                 detalle.setProductoId(producto.getIdProducto());
                 detalle.setNombre(producto.getNombre());
                 detalle.setCostoUnitario(costo);
@@ -85,9 +97,15 @@ public class EntradaMercaderiaService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<EntradaDTO> misEntradasPaginado(Integer usuarioId, org.springframework.data.domain.Pageable pageable) {
+        return entradas.findByUsuario_IdUsuarioOrderByFechaDesc(usuarioId, pageable)
+                .map(this::mapear);
+    }
+
     private EntradaDTO mapear(Entrada e) {
         List<ItemEntradaDTO> items = e.getDetalles().stream()
-                .map(d -> new ItemEntradaDTO(d.getProductoId(), d.getCantidad(), d.getCostoUnitario()))
+                .map(d -> new ItemEntradaDTO(d.getProductoId(), d.getProveedorId(), d.getCantidad(), d.getCostoUnitario()))
                 .toList();
         return new EntradaDTO(e.getIdEntrada(), e.getFecha() != null ? e.getFecha().toString() : "", items);
     }

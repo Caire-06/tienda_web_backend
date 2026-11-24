@@ -1,12 +1,9 @@
 package com.utp.tienda.vistas.dto;
 
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
-import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
+import java.util.List;
 
-/** DTO de respuesta para productos. */
+/** DTO de respuesta para productos (incluye su ficha técnica en 3FN). */
 public record ProductoDTO(
         Integer id,
         String nombre,
@@ -16,5 +13,8 @@ public record ProductoDTO(
         Integer vendidos,
         String imagen,
         String descripcion,
-        Boolean activo
+        Boolean activo,
+        String marca,
+        String fechaCreacion,
+        List<EspecificacionDTO> especificaciones
 ) {}

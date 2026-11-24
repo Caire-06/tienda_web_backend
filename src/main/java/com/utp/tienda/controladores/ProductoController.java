@@ -42,9 +42,19 @@ public class ProductoController {
 
     /** GET /api/productos -> listar productos (endpoint PUBLICO: visible para todos). */
     @GetMapping
-    public ResponseEntity<List<ProductoDTO>> listar(@org.springframework.web.bind.annotation.RequestHeader(value = "Authorization", required = false) String auth) {
+    public ResponseEntity<?> listar(
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false, defaultValue = "10") Integer size,
+            @RequestParam(value = "categoria", required = false) String categoria,
+            @RequestParam(value = "busqueda", required = false) String busqueda,
+            @org.springframework.web.bind.annotation.RequestHeader(value = "Authorization", required = false) String auth) {
         // Endpoint publico: el catalogo es visible para todos (con o sin sesion).
-        return ResponseEntity.ok(productos.listar());
+        if (page == null) {
+            return ResponseEntity.ok(productos.listar());
+        }
+        org.springframework.data.domain.Pageable pageable = 
+                org.springframework.data.domain.PageRequest.of(page, Math.max(1, Math.min(size, 100)), org.springframework.data.domain.Sort.by("nombre").ascending());
+        return ResponseEntity.ok(com.utp.tienda.vistas.dto.PaginaDTO.de(productos.listarPaginado(categoria, busqueda, pageable)));
     }
 
     /** GET /api/productos/{id} -> detalle del producto (endpoint PUBLICO: visible para todos). */

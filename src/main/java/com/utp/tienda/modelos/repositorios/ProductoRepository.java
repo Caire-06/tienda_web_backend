@@ -2,6 +2,8 @@ package com.utp.tienda.modelos.repositorios;
 
 import com.utp.tienda.modelos.entidades.Producto;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -14,8 +16,14 @@ import java.util.Optional;
 @Repository
 public interface ProductoRepository extends JpaRepository<Producto, Integer> {
     List<Producto> findAllByOrderByNombreAsc();
+    Page<Producto> findAllByOrderByNombreAsc(Pageable pageable);
     Optional<Producto> findByNombre(String nombre);
     boolean existsByNombre(String nombre);
+
+    @Query("SELECT p FROM Producto p WHERE " +
+           "(:categoria IS NULL OR :categoria = '' OR :categoria = 'Todas' OR LOWER(p.categoria) = LOWER(:categoria)) AND " +
+           "(:q IS NULL OR :q = '' OR LOWER(p.nombre) LIKE LOWER(CONCAT('%', :q, '%')))")
+    Page<Producto> buscarPaginado(@Param("categoria") String categoria, @Param("q") String q, Pageable pageable);
 
     /** Busca un producto aplicando bloqueo pesimista (PESSIMISTIC_WRITE) para operaciones concurrentes seguras. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)

@@ -8,6 +8,7 @@ import java.math.BigDecimal;
 /** Línea de detalle de una entrada de mercadería. */
 public record ItemEntradaDTO(
         @NotNull Integer idProducto,
+        @NotNull Integer idProveedor,
         @NotNull @Min(1) Integer cantidad,
         @NotNull BigDecimal costoUnitario
 ) {}

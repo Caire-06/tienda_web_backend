@@ -31,8 +31,16 @@ public class UsuarioController {
     }
 
     @GetMapping
-    public ResponseEntity<List<UsuarioDTO>> listarTodos(@RequestHeader(value = "Authorization", required = false) String auth) {
-        return ResponseEntity.ok(usuarioService.listarUsuariosDTO());
+    public ResponseEntity<?> listarTodos(
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false, defaultValue = "10") Integer size,
+            @RequestHeader(value = "Authorization", required = false) String auth) {
+        if (page == null) {
+            return ResponseEntity.ok(usuarioService.listarUsuariosDTO());
+        }
+        org.springframework.data.domain.Pageable pageable = 
+                org.springframework.data.domain.PageRequest.of(page, Math.max(1, Math.min(size, 100)), org.springframework.data.domain.Sort.by("idUsuario").ascending());
+        return ResponseEntity.ok(com.utp.tienda.vistas.dto.PaginaDTO.de(usuarioService.listarUsuariosDTOPaginado(pageable)));
     }
 
     @PostMapping
