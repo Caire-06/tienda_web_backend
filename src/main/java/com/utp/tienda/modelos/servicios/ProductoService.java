@@ -124,6 +124,12 @@ public class ProductoService {
     }
 
     @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<ProductoDTO> listarPaginado(String categoria, String busqueda, org.springframework.data.domain.Pageable pageable) {
+        return productos.buscarPaginado(categoria, busqueda, pageable)
+                .map(this::mapear);
+    }
+
+    @Transactional(readOnly = true)
     public ProductoDTO detalle(Integer id) {
         Producto p = productos.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado"));

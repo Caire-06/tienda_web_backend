@@ -116,6 +116,21 @@ public class KardexService {
         return movimientos();
     }
 
+    @Transactional(readOnly = true)
+    public com.utp.tienda.vistas.dto.PaginaDTO<KardexMovimientoDTO> movimientosPaginado(Integer usuarioId, org.springframework.data.domain.Pageable pageable) {
+        productoService.verificarRolPermitido(usuarioId);
+        List<KardexMovimientoDTO> todos = movimientos();
+        int total = todos.size();
+        int inicio = (int) pageable.getOffset();
+        if (inicio >= total) {
+            return new com.utp.tienda.vistas.dto.PaginaDTO<>(List.of(), total, (int) Math.ceil((double) total / pageable.getPageSize()), pageable.getPageNumber(), pageable.getPageSize());
+        }
+        int fin = Math.min(inicio + pageable.getPageSize(), total);
+        List<KardexMovimientoDTO> sublista = todos.subList(inicio, fin);
+        int totalPaginas = (int) Math.ceil((double) total / pageable.getPageSize());
+        return new com.utp.tienda.vistas.dto.PaginaDTO<>(sublista, total, Math.max(1, totalPaginas), pageable.getPageNumber(), pageable.getPageSize());
+    }
+
     /**
      * Resumen del Kardex para el dashboard del almacén:
      * totales de movimientos, stock y últimos movimientos registrados.

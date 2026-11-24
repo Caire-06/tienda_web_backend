@@ -30,13 +30,27 @@ public class DespachoController {
     }
 
     @GetMapping
-    public ResponseEntity<List<DespachoLoteDTO>> listarLotes() {
-        return ResponseEntity.ok(despachoLoteService.listarLotes());
+    public ResponseEntity<?> listarLotes(
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false, defaultValue = "10") Integer size) {
+        if (page == null) {
+            return ResponseEntity.ok(despachoLoteService.listarLotes());
+        }
+        org.springframework.data.domain.Pageable pageable = 
+                org.springframework.data.domain.PageRequest.of(page, Math.max(1, Math.min(size, 100)));
+        return ResponseEntity.ok(com.utp.tienda.vistas.dto.PaginaDTO.de(despachoLoteService.listarLotesPaginado(pageable)));
     }
 
     @GetMapping("/pendientes")
-    public ResponseEntity<List<PedidoDTO>> listarPendientes() {
-        return ResponseEntity.ok(despachoLoteService.listarPedidosPendientesDespacho());
+    public ResponseEntity<?> listarPendientes(
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false, defaultValue = "10") Integer size) {
+        if (page == null) {
+            return ResponseEntity.ok(despachoLoteService.listarPedidosPendientesDespacho());
+        }
+        org.springframework.data.domain.Pageable pageable = 
+                org.springframework.data.domain.PageRequest.of(page, Math.max(1, Math.min(size, 100)));
+        return ResponseEntity.ok(com.utp.tienda.vistas.dto.PaginaDTO.de(despachoLoteService.listarPedidosPendientesDespachoPaginado(pageable)));
     }
 
     @PostMapping

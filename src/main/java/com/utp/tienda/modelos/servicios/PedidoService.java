@@ -155,6 +155,7 @@ public class PedidoService {
     }
 
     @Transactional(readOnly = true)
+    @Transactional(readOnly = true)
     public List<PedidoDTO> misCompras(Integer usuarioId) {
         return pedidos.findByUsuario_IdUsuarioOrderByFechaDesc(usuarioId).stream()
                 .map(this::mapear)
@@ -162,10 +163,22 @@ public class PedidoService {
     }
 
     @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<PedidoDTO> misComprasPaginado(Integer usuarioId, org.springframework.data.domain.Pageable pageable) {
+        return pedidos.findByUsuario_IdUsuarioOrderByFechaDesc(usuarioId, pageable)
+                .map(this::mapear);
+    }
+
+    @Transactional(readOnly = true)
     public List<PedidoDTO> listarTodos() {
         return pedidos.findAllByOrderByFechaDesc().stream()
                 .map(this::mapear)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<PedidoDTO> listarTodosPaginado(org.springframework.data.domain.Pageable pageable) {
+        return pedidos.findAllByOrderByFechaDesc(pageable)
+                .map(this::mapear);
     }
 
     @Transactional

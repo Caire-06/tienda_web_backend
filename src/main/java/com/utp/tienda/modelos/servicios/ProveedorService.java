@@ -22,6 +22,10 @@ public class ProveedorService {
         return proveedores.findByActivoTrueOrderByNombreAsc().stream().toList();
     }
 
+    public org.springframework.data.domain.Page<Proveedor> listarActivosPaginado(org.springframework.data.domain.Pageable pageable) {
+        return proveedores.findByActivoTrueOrderByNombreAsc(pageable);
+    }
+
     /** Registra un nuevo proveedor (operación restringida a roles administrativos/almacén). */
     public Proveedor crear(Integer usuarioId, CrearProveedorDTO dto) {
         productoService.verificarRolPermitido(usuarioId);
