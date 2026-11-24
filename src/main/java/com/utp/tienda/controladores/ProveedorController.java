@@ -59,4 +59,18 @@ public class ProveedorController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
         }
     }
+
+    /** PUT /api/proveedores/{id} -> actualizar proveedor existente. */
+    @PutMapping("/{id}")
+    public ResponseEntity<?> actualizar(@org.springframework.web.bind.annotation.RequestHeader(value = "Authorization", required = false) String auth,
+                                       @PathVariable Integer id,
+                                       @jakarta.validation.Valid @RequestBody CrearProveedorDTO dto) {
+        Integer usuarioId = usuarioIdO401(auth);
+        if (usuarioId == null) return noAutorizado();
+        try {
+            return ResponseEntity.ok(proveedores.actualizar(usuarioId, id, dto));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
+        }
+    }
 }
