@@ -15,6 +15,26 @@ ALTER TABLE productos ADD COLUMN IF NOT EXISTS fecha_creacion TIMESTAMP DEFAULT 
 ALTER TABLE productos ADD COLUMN IF NOT EXISTS fecha_actualizacion TIMESTAMP;
 ALTER TABLE productos ADD COLUMN IF NOT EXISTS usuario_registro VARCHAR(50) DEFAULT 'SISTEMA';
 
+-- Asegurar tabla de especificaciones técnicas (3FN) con auditoría TechStore
+CREATE TABLE IF NOT EXISTS especificaciones_tecnicas (
+    id_especificacion   SERIAL PRIMARY KEY,
+    id_producto         INT NOT NULL,
+    caracteristica      VARCHAR(100) NOT NULL,
+    valor               VARCHAR(150) NOT NULL,
+
+    -- Auditoría obligatoria TechStore
+    fecha_creacion      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    fecha_actualizacion TIMESTAMP,
+    usuario_registro    VARCHAR(50) NOT NULL DEFAULT 'SISTEMA',
+    activo              BOOLEAN NOT NULL DEFAULT TRUE,
+
+    CONSTRAINT fk_especificaciones_producto
+        FOREIGN KEY (id_producto) REFERENCES productos(id_producto) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_especificaciones_producto
+    ON especificaciones_tecnicas(id_producto);
+
 -- ----------------------------------------------------------------------------
 -- 1. Inserción de Productos
 -- ----------------------------------------------------------------------------
