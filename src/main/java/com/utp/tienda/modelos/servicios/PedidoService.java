@@ -115,7 +115,7 @@ public class PedidoService {
                 BigDecimal precio = prod.getPrecio() != null ? prod.getPrecio() : BigDecimal.ZERO;
                 DetallePedido det = new DetallePedido();
                 det.setPedido(pedido);
-                det.setProductoId(item.id());
+                det.setProducto(prod);
                 det.setNombre(item.nombre());
                 det.setPrecioUnitario(precio);
                 det.setCantidad(cant);

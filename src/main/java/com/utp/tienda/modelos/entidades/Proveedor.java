@@ -41,6 +41,9 @@ public class Proveedor {
 
     public Proveedor() {}
 
+    @com.fasterxml.jackson.annotation.JsonProperty("id")
+    public Integer getId() { return idProveedor; }
+
     public Integer getIdProveedor() { return idProveedor; }
     public void setIdProveedor(Integer idProveedor) { this.idProveedor = idProveedor; }
 

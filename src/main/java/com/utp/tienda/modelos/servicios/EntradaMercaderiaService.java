@@ -78,7 +78,7 @@ public class EntradaMercaderiaService {
                 DetalleEntrada detalle = new DetalleEntrada();
                 detalle.setEntrada(entrada);
                 detalle.setProveedor(proveedor);
-                detalle.setProductoId(producto.getIdProducto());
+                detalle.setProducto(producto);
                 detalle.setNombre(producto.getNombre());
                 detalle.setCostoUnitario(costo);
                 detalle.setCantidad(cantidad);

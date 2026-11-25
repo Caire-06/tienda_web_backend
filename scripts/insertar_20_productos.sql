@@ -40,6 +40,26 @@ ALTER TABLE especificaciones_tecnicas ALTER COLUMN activo SET DEFAULT TRUE;
 ALTER TABLE especificaciones_tecnicas ALTER COLUMN fecha_creacion SET DEFAULT CURRENT_TIMESTAMP;
 ALTER TABLE especificaciones_tecnicas ALTER COLUMN usuario_registro SET DEFAULT 'SISTEMA';
 
+-- Asegurar integridad referencial (Foreign Keys) para visualización en Diagramas ER (DBeaver / pgAdmin)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'detalle_pedidos') THEN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_detalle_pedidos_producto') THEN
+            ALTER TABLE detalle_pedidos
+                ADD CONSTRAINT fk_detalle_pedidos_producto
+                FOREIGN KEY (producto_id) REFERENCES productos(id_producto);
+        END IF;
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'detalle_entradas') THEN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_detalle_entradas_producto') THEN
+            ALTER TABLE detalle_entradas
+                ADD CONSTRAINT fk_detalle_entradas_producto
+                FOREIGN KEY (producto_id) REFERENCES productos(id_producto);
+        END IF;
+    END IF;
+END $$;
+
 -- ----------------------------------------------------------------------------
 -- 1. Inserción de Productos
 -- ----------------------------------------------------------------------------
