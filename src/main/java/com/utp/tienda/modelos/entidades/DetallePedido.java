@@ -16,8 +16,9 @@ public class DetallePedido {
     @JoinColumn(name = "id_pedido", nullable = false)
     private Pedido pedido;
 
-    @Column(name = "producto_id", nullable = false)
-    private Integer productoId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "producto_id", nullable = false)
+    private Producto producto;
 
     @Column(name = "nombre", nullable = false, length = 200)
     private String nombre;
@@ -39,8 +40,19 @@ public class DetallePedido {
     public Pedido getPedido() { return pedido; }
     public void setPedido(Pedido pedido) { this.pedido = pedido; }
 
-    public Integer getProductoId() { return productoId; }
-    public void setProductoId(Integer productoId) { this.productoId = productoId; }
+    public Producto getProducto() { return producto; }
+    public void setProducto(Producto producto) { this.producto = producto; }
+
+    public Integer getProductoId() { return producto != null ? producto.getIdProducto() : null; }
+    public void setProductoId(Integer productoId) {
+        if (productoId != null) {
+            Producto p = new Producto();
+            p.setIdProducto(productoId);
+            this.producto = p;
+        } else {
+            this.producto = null;
+        }
+    }
 
     public String getNombre() { return nombre; }
     public void setNombre(String nombre) { this.nombre = nombre; }
