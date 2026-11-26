@@ -21,5 +21,8 @@ public record KardexMovimientoDTO(
         String factura,
         String detalle,
         String motivo,
-        String usuario
+        String usuario,
+        /** true cuando el saldo es negativo o una salida no pudo valorizarse con costo real. */
+        Boolean inconsistente,
+        String observacion
 ) {}

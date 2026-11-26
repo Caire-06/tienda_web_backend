@@ -1,14 +1,17 @@
 package com.utp.tienda.modelos.servicios;
 
 import com.utp.tienda.modelos.entidades.EspecificacionTecnica;
+import com.utp.tienda.modelos.entidades.InventarioInicial;
 import com.utp.tienda.modelos.entidades.Producto;
 import com.utp.tienda.modelos.entidades.Usuario;
 import com.utp.tienda.modelos.repositorios.EspecificacionTecnicaRepository;
+import com.utp.tienda.modelos.repositorios.InventarioInicialRepository;
 import com.utp.tienda.modelos.repositorios.ProductoRepository;
 import com.utp.tienda.modelos.repositorios.UsuarioRepository;
 import com.utp.tienda.vistas.dto.ActualizarProductoDTO;
 import com.utp.tienda.vistas.dto.CrearProductoDTO;
 import com.utp.tienda.vistas.dto.EspecificacionDTO;
+import com.utp.tienda.vistas.dto.InventarioInicialDTO;
 import com.utp.tienda.vistas.dto.ProductoDTO;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,15 +34,18 @@ public class ProductoService {
     private final UsuarioRepository usuarios;
     private final CloudinaryService cloudinaryService;
     private final EspecificacionTecnicaRepository especificaciones;
+    private final InventarioInicialRepository inventariosIniciales;
 
     public ProductoService(ProductoRepository productos,
                            UsuarioRepository usuarios,
                            CloudinaryService cloudinaryService,
-                           EspecificacionTecnicaRepository especificaciones) {
+                           EspecificacionTecnicaRepository especificaciones,
+                           InventarioInicialRepository inventariosIniciales) {
         this.productos = productos;
         this.usuarios = usuarios;
         this.cloudinaryService = cloudinaryService;
         this.especificaciones = especificaciones;
+        this.inventariosIniciales = inventariosIniciales;
     }
 
     /** Datos de los productos iniciales (información actual de la tienda) + imagen local a subir a Cloudinary. */
@@ -154,7 +160,9 @@ public class ProductoService {
         p.setFechaActualizacion(LocalDateTime.now());
         p.setUsuarioRegistro(usuario);
         sincronizarEspecificaciones(p, dto.especificaciones(), usuario);
-        return mapear(productos.save(p));
+        Producto guardado = productos.save(p);
+        registrarInventarioInicialSiAplica(guardado, dto.costoUnitarioInicial(), usuario);
+        return mapear(guardado);
     }
 
     @Transactional
@@ -176,6 +184,9 @@ public class ProductoService {
         // Lista NN = reemplazo completo de la ficha técnica; null = no tocarla.
         if (dto.especificaciones() != null) {
             sincronizarEspecificaciones(p, dto.especificaciones(), nombreUsuario(usuarioId));
+        }
+        if (dto.costoUnitarioInicial() != null) {
+            regularizarInventarioInicial(usuarioId, id, dto.costoUnitarioInicial());
         }
         return mapear(productos.save(p));
     }
@@ -200,6 +211,68 @@ public class ProductoService {
         if (!ROLES_PERMITIDOS.contains(rol)) {
             throw new IllegalArgumentException("No tiene permisos para gestionar productos");
         }
+    }
+
+    /**
+     * Regulariza el inventario inicial de un producto ya existente.
+     * Se toma su stock físico actual como cantidad del evento y se fecha ahora,
+     * sin duplicar existencias ni volver a contabilizar compras y ventas históricas.
+     * Si el evento ya existe, solo se corrige el costo (nunca la cantidad ni la fecha).
+     */
+    @Transactional
+    public ProductoDTO regularizarInventarioInicial(Integer usuarioId, Integer productoId,
+                                                    BigDecimal costoUnitario) {
+        verificarRolPermitido(usuarioId);
+        if (costoUnitario == null || costoUnitario.signum() < 0) {
+            throw new IllegalArgumentException("El costo unitario inicial debe ser mayor o igual a cero");
+        }
+        Producto p = productos.findById(productoId)
+                .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado: " + productoId));
+        String usuario = nombreUsuario(usuarioId);
+
+        InventarioInicial evento = inventariosIniciales.findByProducto_IdProducto(productoId).orElse(null);
+        if (evento == null) {
+            evento = new InventarioInicial(
+                    p,
+                    p.getStock() != null ? p.getStock() : 0,
+                    costoUnitario,
+                    LocalDateTime.now(),
+                    usuario
+            );
+        } else {
+            evento.setCostoUnitario(costoUnitario);
+            evento.setUsuarioRegistro(usuario);
+            evento.setFechaActualizacion(LocalDateTime.now());
+        }
+        inventariosIniciales.save(evento);
+        return mapear(p);
+    }
+
+    /** Eventos de inventario inicial registrados (para auditoría del Kardex). */
+    @Transactional(readOnly = true)
+    public List<InventarioInicialDTO> inventariosIniciales() {
+        return inventariosIniciales.findByActivoTrue().stream()
+                .map(e -> new InventarioInicialDTO(
+                        e.getProductoId(),
+                        e.getProducto() != null ? e.getProducto().getNombre() : "",
+                        e.getCantidad(),
+                        e.getCostoUnitario(),
+                        e.getFecha() == null ? null : e.getFecha().toString(),
+                        e.getUsuarioRegistro()
+                ))
+                .toList();
+    }
+
+    /** Productos activos que aún no tienen costo unitario inicial (pendientes de regularizar). */
+    @Transactional(readOnly = true)
+    public List<ProductoDTO> pendientesRegularizacion() {
+        List<Integer> conEvento = inventariosIniciales.findByActivoTrue().stream()
+                .map(InventarioInicial::getProductoId)
+                .toList();
+        return productos.findAllByOrderByNombreAsc().stream()
+                .filter(p -> Boolean.TRUE.equals(p.getActivo()) && !conEvento.contains(p.getIdProducto()))
+                .map(this::mapear)
+                .toList();
     }
 
     /** Registra los productos iniciales (si no existen) subiendo sus imágenes a Cloudinary. */
@@ -245,6 +318,15 @@ public class ProductoService {
         }
     }
 
+    /** Al dar de alta un producto con stock físico, genera su evento de inventario inicial. */
+    private void registrarInventarioInicialSiAplica(Producto p, BigDecimal costo, String usuario) {
+        if (costo == null || p.getIdProducto() == null) return;
+        int stock = p.getStock() != null ? p.getStock() : 0;
+        if (stock <= 0) return;
+        if (inventariosIniciales.findByProducto_IdProducto(p.getIdProducto()).isPresent()) return;
+        inventariosIniciales.save(new InventarioInicial(p, stock, costo, LocalDateTime.now(), usuario));
+    }
+
     /** Reemplaza la ficha técnica completa del producto con auditoría (cascade + orphanRemoval). */
     private void sincronizarEspecificaciones(Producto p, List<EspecificacionDTO> dtos, String usuario) {
         if (dtos == null) return;
@@ -275,15 +357,22 @@ public class ProductoService {
     }
 
     private ProductoDTO mapear(Producto p) {
-        List<EspecificacionDTO> ficha = especificaciones.findByIdProductoAndActivoTrue(p.getIdProducto()).stream()
-                .map(e -> new EspecificacionDTO(e.getCaracteristica(), e.getValor()))
-                .toList();
+        List<EspecificacionDTO> ficha = p.getIdProducto() == null
+                ? List.of()
+                : especificaciones.findByIdProductoAndActivoTrue(p.getIdProducto()).stream()
+                        .map(e -> new EspecificacionDTO(e.getCaracteristica(), e.getValor()))
+                        .toList();
+        InventarioInicial inicial = p.getIdProducto() == null
+                ? null
+                : inventariosIniciales.findByProducto_IdProducto(p.getIdProducto()).orElse(null);
         return new ProductoDTO(
                 p.getIdProducto(), p.getNombre(), p.getCategoria(),
                 p.getPrecio(), p.getStock(), p.getVendidos(), p.getImagen(), p.getDescripcion(),
                 p.getActivo(), p.getMarca(),
                 p.getFechaCreacion() == null ? null : p.getFechaCreacion().toString(),
-                ficha
+                ficha,
+                inicial != null ? inicial.getCostoUnitario() : null,
+                inicial != null && inicial.getFecha() != null ? inicial.getFecha().toString() : null
         );
     }
 }

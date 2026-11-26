@@ -134,4 +134,55 @@ public class KardexController {
 
         return ResponseEntity.ok(resumen);
     }
+
+    /** GET /api/kardex/inventario-inicial — eventos de inventario inicial registrados. */
+    @GetMapping("/inventario-inicial")
+    public ResponseEntity<?> inventariosIniciales(
+            @RequestHeader(value = "Authorization", required = false) String auth
+    ) {
+        Integer id = sesiones.identificar(auth);
+        if (id == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Sesión inválida"));
+        }
+        return ResponseEntity.ok(kardex.inventariosIniciales(id));
+    }
+
+    /** GET /api/kardex/inventario-inicial/pendientes — productos sin costo inicial. */
+    @GetMapping("/inventario-inicial/pendientes")
+    public ResponseEntity<?> pendientes(
+            @RequestHeader(value = "Authorization", required = false) String auth
+    ) {
+        Integer id = sesiones.identificar(auth);
+        if (id == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Sesión inválida"));
+        }
+        return ResponseEntity.ok(kardex.pendientesRegularizacion(id));
+    }
+
+    /**
+     * POST /api/kardex/inventario-inicial/regularizar
+     *
+     * Regulariza el costo unitario inicial de un producto ya existente usando su stock
+     * físico actual. No duplica existencias ni recontabiliza compras/ventas históricas.
+     */
+    @PostMapping("/inventario-inicial/regularizar")
+    public ResponseEntity<?> regularizar(
+            @RequestBody com.utp.tienda.vistas.dto.RegularizarInventarioDTO dto,
+            @RequestHeader(value = "Authorization", required = false) String auth
+    ) {
+        Integer id = sesiones.identificar(auth);
+        if (id == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Sesión inválida"));
+        }
+        try {
+            return ResponseEntity.ok(kardex.regularizarInventarioInicial(id, dto));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
+        }
+    }
 }

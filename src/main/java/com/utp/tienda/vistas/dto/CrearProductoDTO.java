@@ -2,6 +2,7 @@ package com.utp.tienda.vistas.dto;
 
 import java.math.BigDecimal;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -20,5 +21,7 @@ public record CrearProductoDTO(
         @Min(0) Integer vendidos,
         Boolean activo,
         @Size(max = 100) String marca,
-        @Valid List<@Valid EspecificacionDTO> especificaciones
+        @Valid List<@Valid EspecificacionDTO> especificaciones,
+        /** Costo unitario del stock físico inicial. Independiente del precio de venta. */
+        @DecimalMin(value = "0", message = "El costo unitario inicial no puede ser negativo") BigDecimal costoUnitarioInicial
 ) {}

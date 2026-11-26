@@ -16,5 +16,7 @@ public record ProductoDTO(
         Boolean activo,
         String marca,
         String fechaCreacion,
-        List<EspecificacionDTO> especificaciones
+        List<EspecificacionDTO> especificaciones,
+        BigDecimal costoUnitarioInicial,
+        String fechaInventarioInicial
 ) {}
