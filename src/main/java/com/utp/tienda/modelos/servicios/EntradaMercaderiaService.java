@@ -82,6 +82,8 @@ public class EntradaMercaderiaService {
                 detalle.setNombre(producto.getNombre());
                 detalle.setCostoUnitario(costo);
                 detalle.setCantidad(cantidad);
+                detalle.setGuia(item.guia());
+                detalle.setFactura(item.factura());
                 lineas.add(detalle);
             }
         }
@@ -103,9 +105,24 @@ public class EntradaMercaderiaService {
                 .map(this::mapear);
     }
 
+    /** Listado completo de compras registradas (cabeceras de entrada + sus líneas). */
+    @Transactional(readOnly = true)
+    public List<EntradaDTO> todas() {
+        return entradas.findAllByOrderByFechaDesc().stream()
+                .map(this::mapear)
+                .toList();
+    }
+
+    /** Listado paginado de compras registradas. */
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<EntradaDTO> todasPaginado(org.springframework.data.domain.Pageable pageable) {
+        return entradas.findAllByOrderByFechaDesc(pageable)
+                .map(this::mapear);
+    }
+
     private EntradaDTO mapear(Entrada e) {
         List<ItemEntradaDTO> items = e.getDetalles().stream()
-                .map(d -> new ItemEntradaDTO(d.getProductoId(), d.getProveedorId(), d.getCantidad(), d.getCostoUnitario()))
+                .map(d -> new ItemEntradaDTO(d.getProductoId(), d.getProveedorId(), d.getCantidad(), d.getCostoUnitario(), d.getGuia(), d.getFactura()))
                 .toList();
         return new EntradaDTO(e.getIdEntrada(), e.getFecha() != null ? e.getFecha().toString() : "", items);
     }

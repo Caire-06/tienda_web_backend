@@ -10,5 +10,7 @@ public record ItemEntradaDTO(
         @NotNull Integer idProducto,
         @NotNull Integer idProveedor,
         @NotNull @Min(1) Integer cantidad,
-        @NotNull BigDecimal costoUnitario
+        @NotNull BigDecimal costoUnitario,
+        String guia,
+        String factura
 ) {}

@@ -33,6 +33,12 @@ public class DetalleEntrada {
     @Column(name = "cantidad", nullable = false)
     private Integer cantidad;
 
+    @Column(name = "guia", length = 50)
+    private String guia;
+
+    @Column(name = "factura", length = 50)
+    private String factura;
+
     public DetalleEntrada() {}
 
     public Integer getIdDetalleEntrada() { return idDetalleEntrada; }
@@ -68,4 +74,10 @@ public class DetalleEntrada {
 
     public Integer getCantidad() { return cantidad; }
     public void setCantidad(Integer cantidad) { this.cantidad = cantidad; }
+
+    public String getGuia() { return guia; }
+    public void setGuia(String guia) { this.guia = guia; }
+
+    public String getFactura() { return factura; }
+    public void setFactura(String factura) { this.factura = factura; }
 }

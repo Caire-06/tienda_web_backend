@@ -54,4 +54,21 @@ public class EntradaMercaderiaController {
                 org.springframework.data.domain.PageRequest.of(page, Math.max(1, Math.min(size, 100)));
         return ResponseEntity.ok(com.utp.tienda.vistas.dto.PaginaDTO.de(entradas.misEntradasPaginado(id, pageable)));
     }
+
+    /** GET /api/entradas/todas -> listado de compras (facturas de compra) registradas. */
+    @GetMapping("/todas")
+    public ResponseEntity<?> todas(
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false, defaultValue = "10") Integer size,
+            @RequestHeader(value = "Authorization", required = false) String auth) {
+        Integer id = sesiones.identificar(auth);
+        if (id == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Sesión inválida"));
+        if (page == null) {
+            List<EntradaDTO> lista = entradas.todas();
+            return ResponseEntity.ok(lista);
+        }
+        org.springframework.data.domain.Pageable pageable = 
+                org.springframework.data.domain.PageRequest.of(page, Math.max(1, Math.min(size, 100)));
+        return ResponseEntity.ok(com.utp.tienda.vistas.dto.PaginaDTO.de(entradas.todasPaginado(pageable)));
+    }
 }
