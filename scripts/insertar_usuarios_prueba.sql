@@ -65,6 +65,37 @@ FROM rol r CROSS JOIN permiso p
 WHERE r.nombre_rol = 'VENDEDOR' AND p.nombre_permiso = 'TODO'
   AND NOT EXISTS (SELECT 1 FROM usuarios u WHERE u.nombre_usuario = 'vendedor_prueba');
 
+-- Datos personales mínimos: el frontend valida la sesión con GET /api/perfil.
+-- No se insertan filas en correo_electronico; las cuentas siguen sin correo.
+INSERT INTO sexo (descripcion)
+SELECT 'No Especifica'
+WHERE NOT EXISTS (SELECT 1 FROM sexo WHERE descripcion = 'No Especifica');
+
+INSERT INTO estado_civil (descripcion)
+SELECT 'Soltero(a)'
+WHERE NOT EXISTS (SELECT 1 FROM estado_civil WHERE descripcion = 'Soltero(a)');
+
+INSERT INTO datos_personales (nombres, apellidos, dni, id_estado_civil, id_sexo, id_usuario)
+SELECT 'Admin', 'Prueba', '00000001', ec.id_estado_civil, s.id_sexo, u.id_usuario
+FROM usuarios u CROSS JOIN sexo s CROSS JOIN estado_civil ec
+WHERE u.nombre_usuario = 'admin_prueba'
+  AND s.descripcion = 'No Especifica' AND ec.descripcion = 'Soltero(a)'
+  AND NOT EXISTS (SELECT 1 FROM datos_personales d WHERE d.id_usuario = u.id_usuario);
+
+INSERT INTO datos_personales (nombres, apellidos, dni, id_estado_civil, id_sexo, id_usuario)
+SELECT 'Almacen', 'Prueba', '00000002', ec.id_estado_civil, s.id_sexo, u.id_usuario
+FROM usuarios u CROSS JOIN sexo s CROSS JOIN estado_civil ec
+WHERE u.nombre_usuario = 'almacen_prueba'
+  AND s.descripcion = 'No Especifica' AND ec.descripcion = 'Soltero(a)'
+  AND NOT EXISTS (SELECT 1 FROM datos_personales d WHERE d.id_usuario = u.id_usuario);
+
+INSERT INTO datos_personales (nombres, apellidos, dni, id_estado_civil, id_sexo, id_usuario)
+SELECT 'Vendedor', 'Prueba', '00000003', ec.id_estado_civil, s.id_sexo, u.id_usuario
+FROM usuarios u CROSS JOIN sexo s CROSS JOIN estado_civil ec
+WHERE u.nombre_usuario = 'vendedor_prueba'
+  AND s.descripcion = 'No Especifica' AND ec.descripcion = 'Soltero(a)'
+  AND NOT EXISTS (SELECT 1 FROM datos_personales d WHERE d.id_usuario = u.id_usuario);
+
 COMMIT;
 
 -- Verificación:
@@ -73,5 +104,7 @@ COMMIT;
 -- WHERE u.nombre_usuario LIKE '%_prueba';
 
 -- Limpieza (cuando ya no se necesiten):
+-- DELETE FROM datos_personales WHERE id_usuario IN (
+--     SELECT id_usuario FROM usuarios WHERE nombre_usuario IN ('admin_prueba', 'almacen_prueba', 'vendedor_prueba'));
 -- DELETE FROM usuarios WHERE nombre_usuario IN ('admin_prueba', 'almacen_prueba', 'vendedor_prueba');
 -- DELETE FROM rol WHERE nombre_rol = 'VENDEDOR' AND NOT EXISTS (SELECT 1 FROM usuarios WHERE rol_id = (SELECT rol_id FROM rol WHERE nombre_rol = 'VENDEDOR'));
