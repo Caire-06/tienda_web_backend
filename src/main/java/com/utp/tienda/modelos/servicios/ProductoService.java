@@ -231,10 +231,14 @@ public class ProductoService {
         String usuario = nombreUsuario(usuarioId);
 
         InventarioInicial evento = inventariosIniciales.findByProducto_IdProducto(productoId).orElse(null);
+        if (evento == null && (p.getStock() == null || p.getStock() <= 0)) {
+            throw new IllegalArgumentException(
+                    "El producto no tiene stock físico para registrar su inventario inicial");
+        }
         if (evento == null) {
             evento = new InventarioInicial(
                     p,
-                    p.getStock() != null ? p.getStock() : 0,
+                    p.getStock(),
                     costoUnitario,
                     LocalDateTime.now(),
                     usuario
@@ -263,14 +267,16 @@ public class ProductoService {
                 .toList();
     }
 
-    /** Productos activos que aún no tienen costo unitario inicial (pendientes de regularizar). */
+    /** Productos activos con stock físico que aún no tienen costo unitario inicial. */
     @Transactional(readOnly = true)
     public List<ProductoDTO> pendientesRegularizacion() {
         List<Integer> conEvento = inventariosIniciales.findByActivoTrue().stream()
                 .map(InventarioInicial::getProductoId)
                 .toList();
         return productos.findAllByOrderByNombreAsc().stream()
-                .filter(p -> Boolean.TRUE.equals(p.getActivo()) && !conEvento.contains(p.getIdProducto()))
+                .filter(p -> Boolean.TRUE.equals(p.getActivo())
+                        && p.getStock() != null && p.getStock() > 0
+                        && !conEvento.contains(p.getIdProducto()))
                 .map(this::mapear)
                 .toList();
     }
