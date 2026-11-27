@@ -59,11 +59,12 @@ public class EntradaMercaderiaService {
         List<DetalleEntrada> lineas = new ArrayList<>();
         if (dto.items() != null) {
             for (ItemEntradaDTO item : dto.items()) {
-                Producto producto = productos.findById(item.idProducto())
+                Producto producto = productos.findByIdConBloqueo(item.idProducto())
                         .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado: " + item.idProducto()));
                 int cantidad = item.cantidad() != null ? item.cantidad() : 0;
                 if (cantidad <= 0) throw new IllegalArgumentException("La cantidad debe ser mayor a cero");
-                BigDecimal costo = item.costoUnitario() != null ? item.costoUnitario() : BigDecimal.ZERO;
+                BigDecimal costo = item.costoUnitario();
+                if (costo == null || costo.signum() <= 0 || costo.stripTrailingZeros().scale() > 2) throw new IllegalArgumentException("El costo de compra debe ser positivo y tener hasta dos decimales");
 
                 Proveedor proveedor = null;
                 if (item.idProveedor() != null) {

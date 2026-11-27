@@ -92,7 +92,7 @@ public class KardexService {
                     null, null, null, null, null,
                     "", "",
                     INVENTARIO_INICIAL,
-                    "Stock físico registrado al crear o regularizar el producto",
+                    "Stock físico registrado al crear el producto",
                     inicial.getUsuarioRegistro() != null ? inicial.getUsuarioRegistro() : "SISTEMA",
                     false,
                     null
@@ -138,6 +138,7 @@ public class KardexService {
         // 3. SALIDAS POR VENTAS. El precio de venta NO se usa para valorizar la salida:
         //    el costo se calcula con el promedio ponderado vigente en el paso 5.
         for (Pedido pedido : pedidos.findAll()) {
+            if ("Cancelado".equalsIgnoreCase(pedido.getEstado())) continue;
 
             for (DetallePedido detalle : pedido.getDetalles()) {
 
@@ -218,8 +219,8 @@ public class KardexService {
                     // Las salidas se valorizan con el promedio vigente, nunca con precio de venta.
                     if (saldoCantidad > 0 && saldoValor.signum() >= 0) {
                         costoUnitario = saldoValor.divide(
-                                BigDecimal.valueOf(saldoCantidad), 2, RoundingMode.HALF_UP);
-                        valorMovimiento = costoUnitario.multiply(BigDecimal.valueOf(cantidad));
+                                BigDecimal.valueOf(saldoCantidad), 8, RoundingMode.HALF_UP);
+                        valorMovimiento = cantidad == saldoCantidad ? saldoValor : saldoValor.multiply(BigDecimal.valueOf(cantidad)).divide(BigDecimal.valueOf(saldoCantidad), 2, RoundingMode.HALF_UP);
                     } else {
                         // No hay existencias valorizadas: NO se inventa un costo.
                         costoUnitario = BigDecimal.ZERO;
@@ -287,8 +288,9 @@ public class KardexService {
         // 6. MOSTRAR LOS MOVIMIENTOS MÁS RECIENTES PRIMERO.
         resultado.sort(
                 Comparator.comparing(this::obtenerFecha)
-                        .reversed()
+                        .thenComparing(m -> prioridad(m.tipo()))
                         .thenComparing(KardexMovimientoDTO::id)
+                        .reversed()
         );
 
         return resultado;

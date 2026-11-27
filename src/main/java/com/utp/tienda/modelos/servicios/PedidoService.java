@@ -194,9 +194,19 @@ public class PedidoService {
                 throw new SecurityException("Solo personal autorizado de Almacén puede cambiar el estado del pedido.");
             }
         }
-        Pedido p = pedidos.findByNumero(numero)
+        Pedido p = pedidos.findByNumeroConBloqueo(numero)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pedido no encontrado: " + numero));
 
+        if ("Cancelado".equalsIgnoreCase(p.getEstado()) || "Entregado".equalsIgnoreCase(p.getEstado())) {
+            if (p.getEstado().equalsIgnoreCase(nuevoEstado)) return mapear(p);
+            throw new IllegalArgumentException("El pedido ya está cerrado.");
+        }
+        if ("Cancelado".equalsIgnoreCase(nuevoEstado)) {
+            if (p.getDespachoLote() != null || "Enviado".equalsIgnoreCase(p.getEstado())) {
+                throw new IllegalArgumentException("No se puede cancelar un pedido ya despachado sin una devolución.");
+            }
+            liberarStock(p);
+        }
         boolean pagoSinConfirmar = "Por verificar".equalsIgnoreCase(p.getEstadoPago())
                 || "Pendiente de pago".equalsIgnoreCase(p.getEstado());
         if (pagoSinConfirmar && !"Cancelado".equalsIgnoreCase(nuevoEstado)) {
@@ -229,9 +239,10 @@ public class PedidoService {
             throw new SecurityException("Solo el Administrador puede confirmar o rechazar transferencias bancarias.");
         }
 
-        Pedido p = pedidos.findByNumero(numero)
+        Pedido p = pedidos.findByNumeroConBloqueo(numero)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pedido no encontrado: " + numero));
 
+        if ("Cancelado".equalsIgnoreCase(p.getEstado())) throw new IllegalArgumentException("El pedido ya está cancelado.");
         if (!"Por verificar".equalsIgnoreCase(p.getEstadoPago()) && !"Pendiente de pago".equalsIgnoreCase(p.getEstado())) {
             throw new IllegalArgumentException("Este pedido no está pendiente de verificación de pago.");
         }
@@ -242,10 +253,21 @@ public class PedidoService {
             p.setEstadoPago("Pagado");
             p.setEstado("Pendiente");
         } else {
+            liberarStock(p);
             p.setEstadoPago("Rechazado");
             p.setEstado("Cancelado");
         }
         return mapear(pedidos.save(p));
+    }
+
+    // Anula la reserva previa, sin crear una devolución de mercadería.
+    private void liberarStock(Pedido p) {
+        for (DetallePedido d : p.getDetalles()) {
+            Producto prod = productos.findByIdConBloqueo(d.getProductoId()).orElseThrow();
+            int cantidad = d.getCantidad();
+            prod.setStock((prod.getStock() == null ? 0 : prod.getStock()) + cantidad);
+            prod.setVendidos(Math.max(0, (prod.getVendidos() == null ? 0 : prod.getVendidos()) - cantidad));
+        }
     }
 
     public PedidoDTO mapear(Pedido p) {

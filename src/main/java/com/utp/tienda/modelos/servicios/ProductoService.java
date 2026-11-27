@@ -50,7 +50,7 @@ public class ProductoService {
 
     /** Datos de los productos iniciales (información actual de la tienda) + imagen local a subir a Cloudinary. */
     private record ProductoSeed(String nombre, String categoria, String marca, BigDecimal precio, Integer stock,
-                                Integer vendidos, String imagen, String descripcion,
+                                BigDecimal costoInicial, String imagen, String descripcion,
                                 List<EspecificacionDTO> especificaciones) {}
 
     private static List<EspecificacionDTO> specs(EspecificacionDTO... valores) {
@@ -63,13 +63,13 @@ public class ProductoService {
 
     private static final List<ProductoSeed> PRODUCTOS_INICIALES = List.of(
             new ProductoSeed("Mouse Logitech G502 HERO", "Periféricos", "Logitech",
-                    new BigDecimal("229"), 20, 38,
+                    new BigDecimal("229"), 20, new BigDecimal("170"),
                     "https://res.cloudinary.com/svlpcuhv/image/upload/v1794283457/techstore/productos/x0tf8pobbhkai8ja3rki.webp",
                     "Mouse gamer alámbrico 25K DPI, 11 botones programables.",
                     specs(spec("Sensor", "HERO 25K DPI"), spec("Conectividad", "USB-C alámbrico"),
                             spec("Botones", "11 programables"), spec("Peso", "121 g"))),
             new ProductoSeed("Audífonos Sony WH-1000XM4", "Audio", "Sony",
-                    new BigDecimal("1049"), 12, 45,
+                    new BigDecimal("1049"), 12, new BigDecimal("800"),
                     "https://res.cloudinary.com/svlpcuhv/image/upload/v1794282995/techstore/productos/wq2rgb2dqa3brrbeqxjj.webp",
                     "Audífonos bluetooth con noise cancelling, 30h de batería.",
                     specs(spec("Tipo de Diseño", "Over-Ear (Diadema)"),
@@ -78,13 +78,13 @@ public class ProductoService {
                             spec("Conectividad", "Bluetooth 5.3 y Cable 3.5mm"),
                             spec("Micrófono", "Integrado con reducción de ruido"))),
             new ProductoSeed("Teclado Redragon Fizz Pro K616 RGB", "Periféricos", "Redragon",
-                    new BigDecimal("215"), 0, 25,
+                    new BigDecimal("215"), 5, new BigDecimal("150"),
                     "https://res.cloudinary.com/svlpcuhv/image/upload/v1794283650/techstore/productos/otje91i9tsezcdkaso9o.webp",
                     "Teclado mecánico inalámbrico, RGB, 87 teclas.",
                     specs(spec("Tipo de Switch", "Mecánico rojo"), spec("Conectividad", "Inalámbrico 2.4 GHz"),
                             spec("Distribución", "87 teclas TKL"), spec("Iluminación", "RGB"))),
             new ProductoSeed("Laptop Lenovo IdeaPad Slim 3 Ryzen 7 / 16GB / 512GB", "Computadoras", "Lenovo",
-                    new BigDecimal("2599"), 8, 12,
+                    new BigDecimal("2599"), 8, new BigDecimal("2000"),
                     "https://res.cloudinary.com/svlpcuhv/image/upload/v1794283309/techstore/productos/pqnx12wxjenwsjti2t6k.webp",
                     "15.6\" FHD, Ryzen 7 serie 5000, 16GB RAM, 512GB SSD.",
                     specs(spec("Procesador", "AMD Ryzen 7 serie 5000"),
@@ -93,7 +93,7 @@ public class ProductoService {
                             spec("Pantalla", "15.6\" FHD"),
                             spec("Sistema Operativo", "Windows 11 Home"))),
             new ProductoSeed("Samsung Galaxy A55 5G 8GB / 128GB", "Smartphones", "Samsung",
-                    new BigDecimal("1481"), 15, 30,
+                    new BigDecimal("1481"), 15, new BigDecimal("1150"),
                     "https://res.cloudinary.com/svlpcuhv/image/upload/v1794283605/techstore/productos/vdjvpqg0bp7c3155bkns.webp",
                     "Pantalla 6.6\" Super AMOLED 120Hz, cámara 50MP, batería 5000mAh.",
                     specs(spec("Memoria RAM", "8 GB"),
@@ -103,19 +103,19 @@ public class ProductoService {
                             spec("Procesador", "Exynos 1480"),
                             spec("Conectividad", "5G Dual SIM"))),
             new ProductoSeed("Kit Cargador Xiaomi 65W USB-C", "Accesorios", "Xiaomi",
-                    new BigDecimal("59"), 50, 19,
+                    new BigDecimal("59"), 50, new BigDecimal("35"),
                     "https://res.cloudinary.com/svlpcuhv/image/upload/v1794283243/techstore/productos/tptqy0iyesqri08kaof4.webp",
                     "Carga rápida 65W con cable USB-C incluido.",
                     specs(spec("Potencia", "65 W"), spec("Conector", "USB-C"),
                             spec("Contenido", "Cargador y cable USB-C"))),
             new ProductoSeed("Monitor Xiaomi G27Qi 27\" 2K 200Hz", "Computadoras", "Xiaomi",
-                    new BigDecimal("729"), 6, 15,
+                    new BigDecimal("729"), 6, new BigDecimal("550"),
                     "https://res.cloudinary.com/svlpcuhv/image/upload/v1794283375/techstore/productos/zps0k73wpbdt05w0yuh9.webp",
                     "27\" QHD IPS, 200Hz, 1ms, HDR400, FreeSync Gaming.",
                     specs(spec("Pantalla", "27\" QHD IPS"), spec("Tasa de Refresco", "200 Hz"),
                             spec("Tiempo de Respuesta", "1 ms"), spec("Panel", "IPS HDR400"))),
             new ProductoSeed("Parlante JBL Flip 7 Bluetooth", "Audio", "JBL",
-                    new BigDecimal("329"), 18, 28,
+                    new BigDecimal("329"), 18, new BigDecimal("245"),
                     "https://res.cloudinary.com/svlpcuhv/image/upload/v1794283548/techstore/productos/bfowowyk2orloct81aqe.webp",
                     "Bluetooth 5.4, resistente al agua IP67, 14h de reproducción.",
                     specs(spec("Conectividad", "Bluetooth 5.4"), spec("Autonomía", "14 horas"),
@@ -151,7 +151,7 @@ public class ProductoService {
         p.setCategoria(dto.categoria());
         p.setPrecio(dto.precio());
         p.setStock(dto.stock());
-        p.setVendidos(dto.vendidos() != null ? dto.vendidos() : 0);
+        p.setVendidos(0);
         p.setImagen(dto.imagen());
         p.setDescripcion(dto.descripcion());
         p.setActivo(dto.activo() != null ? dto.activo() : true);
@@ -173,10 +173,10 @@ public class ProductoService {
         if (dto.nombre() != null) p.setNombre(dto.nombre());
         if (dto.categoria() != null) p.setCategoria(dto.categoria());
         if (dto.precio() != null) p.setPrecio(dto.precio());
-        if (dto.stock() != null) p.setStock(dto.stock());
+        if (dto.stock() != null && !java.util.Objects.equals(dto.stock(), p.getStock())) throw new IllegalArgumentException("El stock se modifica mediante entradas y ventas");
         if (dto.imagen() != null) p.setImagen(dto.imagen());
         if (dto.descripcion() != null) p.setDescripcion(dto.descripcion());
-        if (dto.vendidos() != null) p.setVendidos(dto.vendidos());
+        if (dto.vendidos() != null && !java.util.Objects.equals(dto.vendidos(), p.getVendidos())) throw new IllegalArgumentException("Las unidades vendidas se calculan mediante pedidos");
         if (dto.activo() != null) p.setActivo(dto.activo());
         if (dto.marca() != null) p.setMarca(marcaNormalizada(dto.marca()));
         p.setFechaActualizacion(LocalDateTime.now());
@@ -186,7 +186,7 @@ public class ProductoService {
             sincronizarEspecificaciones(p, dto.especificaciones(), nombreUsuario(usuarioId));
         }
         if (dto.costoUnitarioInicial() != null) {
-            regularizarInventarioInicial(usuarioId, id, dto.costoUnitarioInicial());
+            throw new IllegalArgumentException("El costo inicial solo se registra al crear el producto");
         }
         return mapear(productos.save(p));
     }
@@ -222,34 +222,7 @@ public class ProductoService {
     @Transactional
     public ProductoDTO regularizarInventarioInicial(Integer usuarioId, Integer productoId,
                                                     BigDecimal costoUnitario) {
-        verificarRolPermitido(usuarioId);
-        if (costoUnitario == null || costoUnitario.signum() < 0) {
-            throw new IllegalArgumentException("El costo unitario inicial debe ser mayor o igual a cero");
-        }
-        Producto p = productos.findById(productoId)
-                .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado: " + productoId));
-        String usuario = nombreUsuario(usuarioId);
-
-        InventarioInicial evento = inventariosIniciales.findByProducto_IdProducto(productoId).orElse(null);
-        if (evento == null && (p.getStock() == null || p.getStock() <= 0)) {
-            throw new IllegalArgumentException(
-                    "El producto no tiene stock físico para registrar su inventario inicial");
-        }
-        if (evento == null) {
-            evento = new InventarioInicial(
-                    p,
-                    p.getStock(),
-                    costoUnitario,
-                    LocalDateTime.now(),
-                    usuario
-            );
-        } else {
-            evento.setCostoUnitario(costoUnitario);
-            evento.setUsuarioRegistro(usuario);
-            evento.setFechaActualizacion(LocalDateTime.now());
-        }
-        inventariosIniciales.save(evento);
-        return mapear(p);
+        throw new IllegalArgumentException("La regularización manual está deshabilitada");
     }
 
     /** Eventos de inventario inicial registrados (para auditoría del Kardex). */
@@ -288,21 +261,14 @@ public class ProductoService {
         for (ProductoSeed s : PRODUCTOS_INICIALES) {
             boolean existe = productos.findAll().stream().anyMatch(p -> s.nombre().equals(p.getNombre()));
             if (existe) continue;
-            byte[] bytes = leerImagen(s.imagen());
-            String imagenFinal;
-            try {
-                Map<String, Object> upload = cloudinaryService.subir(s.imagen(), bytes);
-                imagenFinal = String.valueOf(upload.get("secure_url"));
-            } catch (Exception e) {
-                imagenFinal = "/productos/" + s.imagen();
-            }
+            String imagenFinal = s.imagen(); // URL existente del catálogo de prueba.
             Producto p = new Producto();
             p.setNombre(s.nombre());
             p.setCategoria(s.categoria());
             p.setMarca(s.marca());
             p.setPrecio(s.precio());
             p.setStock(s.stock());
-            p.setVendidos(s.vendidos());
+            p.setVendidos(0);
             p.setImagen(imagenFinal);
             p.setDescripcion(s.descripcion());
             p.setActivo(true);
@@ -310,7 +276,9 @@ public class ProductoService {
             p.setFechaActualizacion(LocalDateTime.now());
             p.setUsuarioRegistro(USUARIO_SISTEMA);
             sincronizarEspecificaciones(p, s.especificaciones(), USUARIO_SISTEMA);
-            creados.add(mapear(productos.save(p)));
+            Producto guardado = productos.save(p);
+            registrarInventarioInicialSiAplica(guardado, s.costoInicial(), USUARIO_SISTEMA);
+            creados.add(mapear(guardado));
         }
         return creados;
     }
@@ -326,9 +294,10 @@ public class ProductoService {
 
     /** Al dar de alta un producto con stock físico, genera su evento de inventario inicial. */
     private void registrarInventarioInicialSiAplica(Producto p, BigDecimal costo, String usuario) {
-        if (costo == null || p.getIdProducto() == null) return;
         int stock = p.getStock() != null ? p.getStock() : 0;
         if (stock <= 0) return;
+        if (costo == null || costo.signum() <= 0 || costo.stripTrailingZeros().scale() > 2)
+            throw new IllegalArgumentException("El costo inicial debe ser positivo y tener hasta dos decimales");
         if (inventariosIniciales.findByProducto_IdProducto(p.getIdProducto()).isPresent()) return;
         inventariosIniciales.save(new InventarioInicial(p, stock, costo, LocalDateTime.now(), usuario));
     }

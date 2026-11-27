@@ -81,8 +81,11 @@ public class DespachoLoteService {
 
         LocalDateTime ahora = LocalDateTime.now();
         for (String numero : dto.numerosPedidos()) {
-            Pedido p = pedidoRepository.findByNumero(numero).orElse(null);
+            Pedido p = pedidoRepository.findByNumeroConBloqueo(numero).orElseThrow(() -> new IllegalArgumentException("Pedido no encontrado: " + numero));
             if (p != null) {
+                if (p.getDespachoLote() != null || !"Procesando".equalsIgnoreCase(p.getEstado())) {
+                    throw new IllegalArgumentException("El pedido " + numero + " no está disponible para despacho.");
+                }
                 if ("Por verificar".equalsIgnoreCase(p.getEstadoPago()) || "Pendiente de pago".equalsIgnoreCase(p.getEstado())) {
                     throw new IllegalArgumentException(
                             "El pedido " + p.getNumero() + " tiene pago por transferencia pendiente de confirmación por Administración.");

@@ -1,3 +1,5 @@
+-- Ejecutar después de iniciar el backend actualizado (requiere inventarios_iniciales).
+BEGIN;
 -- ============================================================================
 -- TechStore - Inserción de 20 Productos Tecnológicos + Especificaciones 3FN
 -- Base de datos objetivo: bd_sistema_negocio (PostgreSQL)
@@ -63,6 +65,7 @@ END $$;
 -- ----------------------------------------------------------------------------
 -- 1. Inserción de Productos
 -- ----------------------------------------------------------------------------
+WITH nuevos AS (
 INSERT INTO productos (
     nombre,
     categoria,
@@ -322,7 +325,13 @@ WHERE NOT EXISTS (
     SELECT 1
     FROM productos p
     WHERE p.nombre = v.nombre
-);
+)
+RETURNING id_producto, stock, precio
+)
+INSERT INTO inventarios_iniciales (producto_id, cantidad, costo_unitario, fecha, activo, usuario_registro)
+SELECT id_producto, stock, round(precio * 0.70, 2), CURRENT_TIMESTAMP, TRUE, 'SISTEMA'
+FROM nuevos WHERE stock > 0;
+-- Costos ficticios de prueba: 70% del precio comercial, solo para estos productos nuevos.
 
 -- Si existían con la categoría antigua 'Computadoras', actualizar a 'Laptops'
 UPDATE productos SET categoria = 'Laptops' WHERE categoria = 'Computadoras';
@@ -440,3 +449,5 @@ SELECT insertar_spec('Power Bank Anker 20000mAh Carga Rápida 22.5W', 'Potencia 
 DROP FUNCTION IF EXISTS insertar_spec(TEXT, TEXT, TEXT);
 
 -- Fin del script.
+
+COMMIT;

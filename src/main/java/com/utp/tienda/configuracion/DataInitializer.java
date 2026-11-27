@@ -37,6 +37,7 @@ public class DataInitializer implements CommandLineRunner {
     private final DireccionRepository direccionRepository;
     private final ProductoRepository productoRepository;
     private final PedidoRepository pedidoRepository;
+    private final com.utp.tienda.modelos.servicios.ProductoService productoService;
     private final PasswordEncryptionStrategy encryptionStrategy;
 
     @Value("${app.seed.admin-password:}")
@@ -60,6 +61,7 @@ public class DataInitializer implements CommandLineRunner {
                            DireccionRepository direccionRepository,
                            ProductoRepository productoRepository,
                            PedidoRepository pedidoRepository,
+                           com.utp.tienda.modelos.servicios.ProductoService productoService,
                            @Qualifier("sha256Strategy") PasswordEncryptionStrategy encryptionStrategy) {
         this.paisRepository = paisRepository;
         this.departamentoRepository = departamentoRepository;
@@ -76,6 +78,7 @@ public class DataInitializer implements CommandLineRunner {
         this.direccionRepository = direccionRepository;
         this.productoRepository = productoRepository;
         this.pedidoRepository = pedidoRepository;
+        this.productoService = productoService;
         this.encryptionStrategy = encryptionStrategy;
     }
 
@@ -254,60 +257,36 @@ public class DataInitializer implements CommandLineRunner {
         }
 
         // 6. Catálogo de Productos Inicial en Base de Datos
-        if (productoRepository.count() == 0) {
-            List<Producto> catalogo = List.of(
-                    crearP("Mouse Logitech G502 HERO", "Periféricos", 229.0, 20, 38, "/productos/mouse-g502.webp", "Mouse gamer alámbrico 25K DPI, 11 botones programables."),
-                    crearP("Audífonos Sony WH-1000XM4", "Audio", 1049.0, 12, 45, "/productos/sony-xm4.webp", "Audífonos bluetooth con noise cancelling, 30h de batería."),
-                    crearP("Teclado Redragon Fizz Pro K616 RGB", "Periféricos", 215.0, 5, 25, "/productos/teclado-redragon.webp", "Teclado mecánico inalámbrico, RGB, 87 teclas."),
-                    crearP("Laptop Lenovo IdeaPad Slim 3 Ryzen 7 / 16GB / 512GB", "Computadoras", 2599.0, 8, 12, "/productos/lenovo-slim3.webp", "15.6\" FHD, Ryzen 7 serie 5000, 16GB RAM, 512GB SSD."),
-                    crearP("Samsung Galaxy A55 5G 8GB / 128GB", "Smartphones", 1481.0, 15, 30, "/productos/galaxy-a55.webp", "Pantalla 6.6\" Super AMOLED 120Hz, cámara 50MP, batería 5000mAh."),
-                    crearP("Kit Cargador Xiaomi 65W USB-C", "Accesorios", 59.0, 50, 19, "/productos/cargador-65w.webp", "Carga rápida 65W con cable USB-C incluido."),
-                    crearP("Monitor Xiaomi G27Qi 27\" 2K 200Hz", "Computadoras", 729.0, 6, 15, "/productos/monitor-xiaomi.webp", "27\" QHD IPS, 200Hz, 1ms, HDR400, FreeSync Gaming."),
-                    crearP("Parlante JBL Flip 7 Bluetooth", "Audio", 329.0, 18, 28, "/productos/jbl-flip7.webp", "Bluetooth 5.4, resistente al agua IP67, 14h de reproducción.")
-            );
-            productoRepository.saveAll(catalogo);
-            System.out.println(">>> [Hibernate] 8 Productos de catálogo inicializados en PostgreSQL.");
+        boolean catalogoNuevo = productoRepository.count() == 0;
+        if (catalogoNuevo) {
+            productoService.registrarProductosIniciales();
         }
 
         // 7. Ventas / Pedidos Iniciales en Base de Datos
-        if (pedidoRepository.count() == 0 && adminGuardado != null) {
-            List<Producto> prods = productoRepository.findAll();
-            if (!prods.isEmpty()) {
-                Producto p1 = prods.get(0); // Mouse G502
-                Producto p2 = prods.size() > 1 ? prods.get(1) : p1; // Sony XM4
-                Producto p5 = prods.size() > 4 ? prods.get(4) : p1; // Galaxy A55
+        if (catalogoNuevo && pedidoRepository.count() == 0 && adminGuardado != null) {
+            {
+                Producto p1 = productoRepository.findByNombre("Mouse Logitech G502 HERO").orElseThrow();
+                Producto p2 = productoRepository.findByNombre("Audífonos Sony WH-1000XM4").orElseThrow();
+                Producto p5 = productoRepository.findByNombre("Samsung Galaxy A55 5G 8GB / 128GB").orElseThrow();
 
                 // Pedido 1
                 crearPedidoDemo(adminGuardado, "VTA-001", "María Torres", "73214569", "Boleta",
-                        LocalDateTime.now().minusHours(2), "Entregado", "envio", "tarjeta",
+                        LocalDateTime.now(), "Entregado", "delivery_propio", "tarjeta",
                         List.of(new DetalleDemo(p1.getIdProducto(), p1.getNombre(), p1.getPrecio(), 2, p1.getImagen())));
 
                 // Pedido 2
                 crearPedidoDemo(adminGuardado, "VTA-002", "Tecnología Global S.A.C.", "20601234567", "Factura",
-                        LocalDateTime.now().minusDays(1), "Pagado", "envio", "transferencia",
+                        LocalDateTime.now(), "Pendiente", "delivery_propio", "transferencia",
                         List.of(new DetalleDemo(p5.getIdProducto(), p5.getNombre(), p5.getPrecio(), 1, p5.getImagen())));
 
                 // Pedido 3
                 crearPedidoDemo(adminGuardado, "VTA-003", "José Ramírez", "45678912", "Boleta",
-                        LocalDateTime.now().minusDays(2), "Pendiente", "recojo", "yape",
+                        LocalDateTime.now(), "Pendiente", "recojo", "yape",
                         List.of(new DetalleDemo(p2.getIdProducto(), p2.getNombre(), p2.getPrecio(), 1, p2.getImagen())));
 
                 System.out.println(">>> [Hibernate] Ventas y Comprobantes de prueba inicializados en PostgreSQL.");
             }
         }
-    }
-
-    private Producto crearP(String nombre, String cat, double precio, int stock, int vendidos, String img, String desc) {
-        Producto p = new Producto();
-        p.setNombre(nombre);
-        p.setCategoria(cat);
-        p.setPrecio(BigDecimal.valueOf(precio));
-        p.setStock(stock);
-        p.setVendidos(vendidos);
-        p.setImagen(img);
-        p.setDescripcion(desc);
-        p.setActivo(true);
-        return p;
     }
 
     private record DetalleDemo(Integer productoId, String nombre, BigDecimal precio, int cantidad, String imagen) {}
@@ -320,6 +299,12 @@ public class DataInitializer implements CommandLineRunner {
         p.setFecha(fecha);
         p.setUsuario(usuario);
         p.setEstado(estado);
+        p.setEstadoPago("Pagado");
+        if ("Entregado".equals(estado)) {
+            p.setFechaProcesando(fecha);
+            p.setFechaEnvio(fecha);
+            p.setFechaEntrega(fecha);
+        }
         p.setTipoEntrega(tipoEntrega);
         p.setMetodoPago(metodoPago);
         p.setCorreoContacto("cliente@techstore.com");
@@ -332,7 +317,11 @@ public class DataInitializer implements CommandLineRunner {
         for (DetalleDemo item : items) {
             DetallePedido d = new DetallePedido();
             d.setPedido(p);
-            d.setProductoId(item.productoId());
+            Producto producto = productoRepository.findByIdConBloqueo(item.productoId()).orElseThrow();
+            if (producto.getStock() < item.cantidad()) throw new IllegalStateException("Stock demo insuficiente");
+            producto.setStock(producto.getStock() - item.cantidad());
+            producto.setVendidos(producto.getVendidos() + item.cantidad());
+            d.setProducto(producto);
             d.setNombre(item.nombre());
             d.setPrecioUnitario(item.precio());
             d.setCantidad(item.cantidad());

@@ -13,6 +13,9 @@ import java.util.Optional;
 @Repository
 public interface PedidoRepository extends JpaRepository<Pedido, Integer> {
     Optional<Pedido> findByNumero(String numero);
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM Pedido p WHERE p.numero = :numero")
+    Optional<Pedido> findByNumeroConBloqueo(@org.springframework.data.repository.query.Param("numero") String numero);
     List<Pedido> findByUsuario_IdUsuarioOrderByFechaDesc(Integer idUsuario);
     Page<Pedido> findByUsuario_IdUsuarioOrderByFechaDesc(Integer idUsuario, Pageable pageable);
     List<Pedido> findAllByOrderByFechaDesc();
